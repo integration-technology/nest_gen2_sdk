@@ -14,7 +14,7 @@ being built from it. The reference app is
 | Folder | What |
 |---|---|
 | `platform/` | Rooting, runtime install, boot hook, watchdog, shell setup |
-| `native/` | C helpers run as ports: `evwatch` (input events), `bplink` (backplate UART), `regread` (register reads for debugging) |
+| `native/` | C helpers run as ports: `evwatch` (input events), `bplink` (backplate UART), `textrender` (text from the device's own fonts), `regread` (register reads for debugging) |
 | `prototype/` | Working Erlang modules: backplate link and keep-alive, double-buffered display, dial, click, motion wake, temperature |
 | `tools/` | Backplate frame decoder, temperature calibration logger |
 | `docs/` | Public API draft (`api.md`), signal-chain diagram |
@@ -46,6 +46,8 @@ This work stands on the shoulders of the Nest right-to-repair community:
   - **FULU and bounty backers** — for funding the
     [Nest Learning Thermostat Gen 1/2 bounty](https://bounties.fulu.org/bounties/nest-learning-thermostat-gen-1-2)
     and supporting right to repair.
+- **[stb_truetype](https://github.com/nothings/stb)** by Sean Barrett (public
+  domain / MIT), vendored in `native/vendor`, which rasterises text on the device.
 - **Nest Labs' published GPL kernel sources** — reading the board file and
   drivers is how the display, dial, backlight and sensors were understood.
 

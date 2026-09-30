@@ -7,11 +7,14 @@
 %% missing (fox, text or all), so only those are written before its next flip.
 %%
 %% The fox uses 360 pre-rendered 140x140 frames (1 degree each); the text is
-%% Akkurat Bold glyphs pre-rendered on the disc blue.
+%% rendered on the device from Nest's own Akkurat Bold (see text.erl).
 
 -define(BACKGROUND, "/media/scratch/.nest_gen2_sdk/test.raw").
 -define(FRAMES, "/media/scratch/.nest_gen2_sdk/fox_frames.raw").
--define(GLYPHS, "/media/scratch/.nest_gen2_sdk/glyphs.raw").
+-define(FONT, "/nestlabs/share/fonts/AkkuratNest-Bold.ttf").
+-define(TEXT_PX, 36).
+-define(WHITE_RGB, {255, 255, 255}).
+-define(BLUE_RGB, {16#43, 16#5f, 16#a6}).
 -define(FB_SYSFS, "/sys/class/graphics/fb0").
 -define(WIDTH, 320).
 -define(PAGE_BYTES, (?WIDTH * ?WIDTH * 4)).
@@ -31,8 +34,9 @@ init() ->
     {ok, Frames} = file:open(?FRAMES, [read, raw, binary]),
     {ok, Fb} = file:open("/dev/fb0", [read, write, raw, binary]),
     {ok, Background} = file:read_file(?BACKGROUND),
-    S = #{fb => Fb, frames => Frames, background => Background, glyphs => load_glyphs(),
-          angle => 0, text => "", visible => visible_page(),
+    text:start(),
+    S = #{fb => Fb, frames => Frames, background => Background,
+          angle => 0, text => "", text_img => render_text(""), visible => visible_page(),
           damage => #{0 => [all], 1 => [all]}},
     loop(present(S)).
 
@@ -47,7 +51,7 @@ loop(S) ->
         {text, Text} ->
             case Text =:= maps:get(text, S) of
                 true -> loop(S);
-                false -> loop(present(damage(text, S#{text := Text})))
+                false -> loop(present(damage(text, S#{text := Text, text_img := render_text(Text)})))
             end;
         redraw ->
             loop(present(damage(all, S)))
@@ -98,31 +102,22 @@ fox_rows(#{frames := Frames, angle := Angle}) ->
     [{((?ORIGIN + R) * ?WIDTH + ?ORIGIN) * 4, binary:part(Bin, R * ?BOX * 4, ?BOX * 4)}
      || R <- lists:seq(0, ?BOX - 1)].
 
-%% Page-relative rows of the text band, text centred; unknown characters skipped.
-text_rows(#{glyphs := Glyphs, text := Text}) ->
-    {_, H, _} = maps:get($0, Glyphs),
-    Gs = [maps:get(C, Glyphs) || C <- Text, maps:is_key(C, Glyphs)],
-    TextW = lists:sum([W || {W, _, _} <- Gs]),
-    Left = max(0, (?BAND_W - TextW) div 2),
-    Right = max(0, ?BAND_W - TextW - Left),
+%% Page-relative rows of the text band, text centred (cropped if wider than the band).
+text_rows(#{text_img := {W, H, P}}) ->
+    Shown = min(W, ?BAND_W),
+    Left = (?BAND_W - Shown) div 2,
+    Right = ?BAND_W - Shown - Left,
     [{((?BAND_Y + R) * ?WIDTH + ?BAND_X) * 4,
-      binary:part(iolist_to_binary([blue(Left),
-                                    [binary:part(P, R * W * 4, W * 4) || {W, _, P} <- Gs],
-                                    blue(Right)]), 0, ?BAND_W * 4)}
+      iolist_to_binary([blue(Left), binary:part(P, R * W * 4, Shown * 4), blue(Right)])}
      || R <- lists:seq(0, H - 1)].
 
 blue(N) -> binary:copy(?BLUE, N).
 
-%% glyphs.raw: repeated <<Char:8, Width:16/little, Height:16/little, BGRX pixels>>.
-load_glyphs() ->
-    {ok, Bin} = file:read_file(?GLYPHS),
-    parse_glyphs(Bin, #{}).
-
-parse_glyphs(<<>>, Acc) -> Acc;
-parse_glyphs(<<Char, W:16/little, H:16/little, Rest/binary>>, Acc) ->
-    Size = W * H * 4,
-    <<Pixels:Size/binary, More/binary>> = Rest,
-    parse_glyphs(More, Acc#{Char => {W, H, Pixels}}).
+render_text(Text) ->
+    case text:render(Text, ?TEXT_PX, ?WHITE_RGB, ?BLUE_RGB, ?FONT) of
+        {ok, W, H, Pixels} -> {W, H, Pixels};
+        {error, _} -> {1, 37, blue(37)}
+    end.
 
 %% Overlays page-relative {Offset, Bin} patches onto the background.
 compose(Background, Patches) ->

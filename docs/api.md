@@ -76,8 +76,9 @@ NestGen2.Text.render(text, opts) :: image     # opts: font (:regular | :bold), s
 NestGen2.Text.measure(text, opts) :: {width, height}
 ```
 
-Fonts are Nest's own Akkurat, loaded at runtime from the device's
-`/nestlabs/share/fonts`; the package never ships font files (commercial licence).
+Fonts are Nest's own Akkurat, rendered at runtime by the `textrender` helper
+(stb_truetype) from the device's `/nestlabs/share/fonts`; the package never ships
+font files or anything rendered from them (commercial licence).
 
 ### NestGen2.Backlight
 
