@@ -1,0 +1,9 @@
+
+# Hand interactive logins to bash when it's installed and runs.
+# Non-interactive `ssh host cmd` goes through `sh -c` and never reads this file,
+# so it stays a working way in even if bash breaks.
+if [ -z "$BASH" ]; then
+  case $- in
+    *i*) [ -x /bin/bash ] && /bin/bash -c true 2>/dev/null && exec /bin/bash -l ;;
+  esac
+fi

@@ -1,0 +1,20 @@
+# Build output
+native/build/
+*.beam
+erl_crash.dump
+_build/
+deps/
+
+# Never commit: Nest's Akkurat fonts are commercially licensed (Lineto), and
+# anything rendered from them counts too. Load them from the device at runtime.
+*.ttf
+*.otf
+glyphs.raw
+
+# Third-party datasheets (copyrighted); link to them instead.
+*.pdf
+
+# Device captures and calibration data
+*.log
+*.csv
+*.raw
