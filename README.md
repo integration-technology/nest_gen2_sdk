@@ -30,8 +30,30 @@ being built from it. The reference app is
 The SDK provides mechanisms with sensible defaults and apps decide policy. The
 backplate keep-alive always runs.
 
-## Licensing notes
+## Credits
 
-Nest's Akkurat fonts (`/nestlabs/share/fonts`) are commercially licensed. This
-repository never contains them or anything rendered from them; the SDK loads
-them from the device at runtime.
+This work stands on the shoulders of the Nest right-to-repair community:
+
+- **[NoLongerEvil-Thermostat](https://github.com/codykociemba/NoLongerEvil-Thermostat)**
+  by codykociemba — the installer we use to root the Nest and flash custom
+  firmware. Every device running this SDK starts there. Its own credits, which we
+  pass on:
+  - **grant-h / ajb142** — [omap_loader](https://github.com/ajb142/omap_loader),
+    the USB bootloader tool used to flash OMAP devices.
+  - **exploiteers (GTVHacker)** — the original research behind the
+    [Nest DFU Attack](https://github.com/exploiteers/NestDFUAttack), which showed
+    custom firmware could be flashed to Nest gen 1 and gen 2.
+  - **FULU and bounty backers** — for funding the
+    [Nest Learning Thermostat Gen 1/2 bounty](https://bounties.fulu.org/bounties/nest-learning-thermostat-gen-1-2)
+    and supporting right to repair.
+- **Nest Labs' published GPL kernel sources** — reading the board file and
+  drivers is how the display, dial, backlight and sensors were understood.
+
+## Licence
+
+GPL-3.0-only; see [LICENSE](LICENSE). If you distribute an app built on this
+SDK, the app must be released under a GPL-compatible licence too.
+
+Nest's Akkurat fonts (`/nestlabs/share/fonts`) are commercially licensed and are
+not covered by this licence. This repository never contains them or anything
+rendered from them; the SDK renders text from the device's own copy at runtime.
