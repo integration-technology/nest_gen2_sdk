@@ -6,6 +6,10 @@
 #   wifi.sh stock      stop ours and give Wi-Fi back to Nest's connmand
 #   wifi.sh takeover   start, and go back to stock if the gateway isn't
 #                      reachable within a minute (safe to run over SSH)
+#   wifi.sh guard      (started by start) every 30 s check the gateway; after
+#                      3 minutes unreachable, restart wpa_supplicant from the
+#                      saved config, so a failed network switch can't leave the
+#                      Nest offline
 #
 # Networks live in <install>/wpa_supplicant.conf; the SDK (NestGen2.Wifi)
 # manages them through wpa_supplicant's control socket in /var/run/wpa_supplicant.
@@ -14,6 +18,7 @@ IFACE=wlan0
 CONF=$B/wpa_supplicant.conf
 WPA_PID=/var/run/wpa_supplicant.pid
 DHCP_PID=/var/run/udhcpc.pid
+GUARD_PID=/var/run/nest_gen2_wifi_guard.pid
 LOG=/tmp/nest_gen2_wifi.log
 
 log() { echo "$(date '+%F %T') $*" >> "$LOG"; }
@@ -36,9 +41,40 @@ start() {
   /sbin/wpa_supplicant -B -s -i "$IFACE" -D nl80211 -c "$CONF" -P "$WPA_PID"
   "$B/udhcpc" -i "$IFACE" -b -S -s "$B/udhcpc.script" -p "$DHCP_PID"
   log "started (wpa_supplicant $(cat $WPA_PID 2>/dev/null), udhcpc $(cat $DHCP_PID 2>/dev/null))"
+  running "$GUARD_PID" || (setsid "$0" guard </dev/null >/dev/null 2>&1 &)
+}
+
+restart_wpa() {
+  running "$WPA_PID" && kill "$(cat $WPA_PID)"
+  kill_named wpa_supplicant
+  sleep 1
+  rm -f "$WPA_PID" /var/run/wpa_supplicant/$IFACE
+  /sbin/wpa_supplicant -B -s -i "$IFACE" -D nl80211 -c "$CONF" -P "$WPA_PID"
+  sleep 10
+  # Ask for a fresh lease on whatever network it joined.
+  running "$DHCP_PID" && kill -USR2 "$(cat $DHCP_PID)" && kill -USR1 "$(cat $DHCP_PID)"
+}
+
+guard() {
+  echo $$ > "$GUARD_PID"
+  down=0
+  while running "$WPA_PID" || [ $down -lt 6 ]; do
+    sleep 30
+    if gateway_ok; then
+      down=0
+    else
+      down=$((down + 1))
+      if [ $down -ge 6 ]; then
+        log "guard: gateway unreachable for 3 minutes; restarting wpa_supplicant from saved config"
+        restart_wpa
+        down=0
+      fi
+    fi
+  done
 }
 
 stop() {
+  running "$GUARD_PID" && kill "$(cat $GUARD_PID)"
   running "$DHCP_PID" && kill "$(cat $DHCP_PID)"
   running "$WPA_PID" && kill "$(cat $WPA_PID)"
   kill_named udhcpc
@@ -78,5 +114,6 @@ case "$1" in
   stop) stop ;;
   stock) stock ;;
   takeover) takeover ;;
-  *) echo "usage: $0 start|stop|stock|takeover"; exit 1 ;;
+  guard) guard ;;
+  *) echo "usage: $0 start|stop|stock|takeover|guard"; exit 1 ;;
 esac

@@ -27,7 +27,15 @@ Nest's `/etc/init.d/nestlabs` (`cleanup_scratch`) deletes every non-dot name in
    `app_watchdog.sh <app>`, which keeps exactly one BEAM running the app
    (pidfile-locked). Nest's own boot logo shows until the app draws its first
    screen.
-5. **Shell (optional):** static bash at `/bin/bash`, `shell/` dotfiles and
+5. **Wi-Fi:** build `udhcpc` with `platform/wifi/build_udhcpc.sh`, copy it,
+   `udhcpc.script` and `wifi.sh` to `<install>`, and create
+   `<install>/wpa_supplicant.conf` (`ctrl_interface=/var/run/wpa_supplicant`,
+   `update_config=1`, one `network={...}` from `wpa_passphrase`). The `rcS`
+   line after `networking start` (see `rcS.excerpt`) runs `wifi.sh takeover`,
+   which replaces Nest's connection manager and falls back to it if the
+   gateway isn't reachable within a minute. `NestGen2.Wifi` then manages
+   networks.
+6. **Shell (optional):** static bash at `/bin/bash`, `shell/` dotfiles and
    `/etc/termcap`; `profile_hook` is appended to `/root/.profile` and only
    switches interactive logins to bash, so `ssh host cmd` always gets plain `sh`.
 

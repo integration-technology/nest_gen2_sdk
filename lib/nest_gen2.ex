@@ -21,9 +21,13 @@ defmodule NestGen2 do
   """
 
   @registry NestGen2.Registry
-  @topics [:dial, :dial_step, :button, :motion, :light, :climate, :battery, :power]
+  @topics [:dial, :dial_step, :button, :motion, :light, :climate, :battery, :power, :wifi]
 
   @type topic :: :dial | :dial_step | :button | :motion | :climate | :battery | :power
+
+  @doc "The SDK's version, e.g. \"0.2.0\"."
+  @spec version() :: String.t()
+  def version, do: Application.spec(:nest_gen2, :vsn) |> to_string()
 
   @doc "Subscribes the calling process to one topic or a list of topics."
   @spec subscribe(topic | [topic]) :: :ok

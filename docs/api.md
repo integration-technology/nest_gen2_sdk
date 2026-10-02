@@ -163,6 +163,36 @@ subscribe_raw() :: :ok                   # {:nest_gen2_backplate, cmd, payload}
 send_raw(cmd, payload) :: :ok
 ```
 
+## Wi-Fi
+
+`NestGen2.Wifi` manages the connection through `wpa_supplicant`, which the
+platform runs in place of Nest's connection manager (`platform/wifi`). It's
+`:unavailable` if that isn't running.
+
+```elixir
+NestGen2.Wifi.status() :: %{state: :connected | :connecting | :disconnected | :unavailable,
+                            ssid: String.t() | nil, ip: String.t() | nil, signal_dbm: integer | nil}
+NestGen2.Wifi.scan() :: {:ok, [%{ssid, signal_dbm, secured, saved}]} | {:error, term}   # ~3-8 s
+NestGen2.Wifi.connect(ssid, password | nil) :: {:ok, %{ssid, ip}}
+    | {:error, :wrong_password | :not_found | :no_ip | :timeout | :password_required
+              | :bad_password_length | :busy | :unavailable | term}                   # up to ~1 min
+NestGen2.Wifi.saved_networks() :: [String.t()]
+NestGen2.Wifi.forget(ssid) :: :ok | {:error, :not_found | :connected | :unavailable}
+# event: {:nest_gen2, :wifi, %{state, ssid, ip}} on any change
+```
+
+`connect/2` only saves a network once it has an address; on any failure it
+goes back to the previous network and leaves the saved configuration alone.
+Passwords are stored as the derived WPA key. Call it from a Task, as it blocks.
+The platform's `wifi.sh guard` also restarts `wpa_supplicant` from the saved
+configuration if the gateway is unreachable for 3 minutes.
+
+## Version
+
+```elixir
+NestGen2.version() :: String.t()   # the SDK's version, e.g. "0.2.0"
+```
+
 ## Clock
 
 `NestGen2.Clock` keeps UTC right: SNTP shortly after start and then hourly,

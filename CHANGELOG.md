@@ -3,8 +3,15 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
-## Unreleased
+## 0.2.0 (unreleased)
 
+- `NestGen2.Wifi`: status, scan, connect (with automatic fall-back to the previous
+  network and nothing saved on failure), saved networks, forget; `:wifi` events.
+  Passwords are stored as the derived WPA key.
+- `NestGen2.version/0`.
+- Platform: Wi-Fi from boot (`wifi.sh takeover` in rcS), and `wifi.sh guard`, which
+  restarts `wpa_supplicant` from the saved configuration after 3 minutes without the
+  gateway.
 - `platform/mix26`: run `mix` with the Nest's toolchain regardless of the shell's version manager.
 
 ## 0.1.0 (2026-10-02)

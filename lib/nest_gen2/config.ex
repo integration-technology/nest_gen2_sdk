@@ -18,7 +18,13 @@ defmodule NestGen2.Config do
     refresh_interval_ms: 10_000,
     time_servers: ["time.nest.com", "pool.ntp.org", :gateway],
     clock_sync_interval_ms: 3_600_000,
-    clock_step_ms: 500
+    clock_step_ms: 500,
+    wifi_interface: "wlan0",
+    wifi_ctrl_dir: "/var/run/wpa_supplicant",
+    wifi_dhcp_log: "/tmp/nest_gen2_dhcp.log",
+    wifi_dhcp_pidfile: "/var/run/udhcpc.pid",
+    wifi_associate_ms: 30_000,
+    wifi_dhcp_ms: 25_000
   ]
 
   def get(key), do: Application.get_env(:nest_gen2, key, Keyword.fetch!(@defaults, key))

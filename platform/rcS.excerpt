@@ -10,6 +10,7 @@ ${INITDIR}/dbus start
 #${INITDIR}/nlsleep start
 #${INITDIR}/nlshutdown start
 ${INITDIR}/networking start
+(setsid /media/scratch/.nest_gen2_sdk/wifi.sh takeover > /dev/null 2>&1 </dev/null &)
 ${INITDIR}/sshd start
 #${INITDIR}/nestlabs start
 #${INITDIR}/monit start

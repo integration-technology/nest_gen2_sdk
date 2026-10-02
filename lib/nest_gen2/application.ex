@@ -9,6 +9,7 @@ defmodule NestGen2.Application do
     children = [
       {Registry, keys: :duplicate, name: NestGen2.Registry},
       NestGen2.Clock,
+      NestGen2.Wifi,
       NestGen2.Piezo,
       NestGen2.Backlight,
       NestGen2.Text,
