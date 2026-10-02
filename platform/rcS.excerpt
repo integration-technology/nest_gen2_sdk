@@ -14,6 +14,5 @@ ${INITDIR}/sshd start
 #${INITDIR}/nestlabs start
 #${INITDIR}/monit start
 /bin/dropbear -g
-(cd /media/scratch/.nest_gen2_sdk && /media/scratch/.nest_gen2_sdk/otp/bin/erl -pa /media/scratch/.nest_gen2_sdk -eval 'nest_hello:run().' -noshell > /media/scratch/.nest_gen2_sdk/nest_hello.log 2>&1 &)
-(setsid /media/scratch/.nest_gen2_sdk/dial_watchdog.sh > /media/scratch/.nest_gen2_sdk/dial_watchdog_stdout.log 2>&1 </dev/null &)
+(setsid /media/scratch/.nest_gen2_sdk/app_watchdog.sh foxbus > /media/scratch/.nest_gen2_sdk/app_watchdog_stdout.log 2>&1 </dev/null &)
 ${INITDIR}/nleapi start

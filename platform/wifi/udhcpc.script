@@ -1,0 +1,24 @@
+#!/bin/sh
+# udhcpc event script (installed as <install>/udhcpc.script).
+# udhcpc sets: interface, ip, mask (prefix length), router, dns.
+# The old address stays until a new lease is bound, so renewing on the same
+# network never drops existing connections (e.g. SSH).
+case "$1" in
+  bound|renew)
+    ip addr replace "$ip/$mask" dev "$interface"
+    # Drop addresses from a previous network.
+    ip -4 addr show dev "$interface" | sed -n 's/.*inet \([0-9.]*\/[0-9]*\).*/\1/p' |
+      while read -r a; do [ "$a" = "$ip/$mask" ] || ip addr del "$a" dev "$interface"; done
+    if [ -n "$router" ]; then
+      ip route replace default via "${router%% *}" dev "$interface"
+    fi
+    : > /tmp/resolv.conf.new
+    for s in $dns; do echo "nameserver $s" >> /tmp/resolv.conf.new; done
+    [ -s /tmp/resolv.conf.new ] && cat /tmp/resolv.conf.new > /etc/resolv.conf
+    echo "$(date '+%F %T') $1 $ip/$mask via $router dns $dns" >> /tmp/nest_gen2_dhcp.log
+    ;;
+  deconfig|leasefail|nak)
+    echo "$(date '+%F %T') $1" >> /tmp/nest_gen2_dhcp.log
+    ;;
+esac
+exit 0

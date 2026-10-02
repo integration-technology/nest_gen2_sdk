@@ -23,8 +23,10 @@ Nest's `/etc/init.d/nestlabs` (`cleanup_scratch`) deletes every non-dot name in
    Build notes: toolchain `arm-nest-linux-musleabi`, `CFLAGS="-O2 -g -march=armv7-a"`
    (the default armv5te needs 64-bit atomics the 2.6.37 kernel lacks),
    `--without-termcap`; build Elixir against a native OTP 26.
-4. **Boot hook:** the last lines of `rcS.excerpt` draw the splash and start
-   `dial_watchdog.sh`, which keeps exactly one BEAM running (pidfile-locked).
+4. **Boot hook:** one line in `rcS` (see `rcS.excerpt`) starts
+   `app_watchdog.sh <app>`, which keeps exactly one BEAM running the app
+   (pidfile-locked). Nest's own boot logo shows until the app draws its first
+   screen.
 5. **Shell (optional):** static bash at `/bin/bash`, `shell/` dotfiles and
    `/etc/termcap`; `profile_hook` is appended to `/root/.profile` and only
    switches interactive logins to bash, so `ssh host cmd` always gets plain `sh`.

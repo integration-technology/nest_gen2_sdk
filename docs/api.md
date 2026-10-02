@@ -37,6 +37,7 @@ Subscribers receive `{:nest_gen2, topic, payload}`:
 |---|---|---|
 | `:dial` | `%{delta: degrees, angle: degrees}` | Head unit ring sensor |
 | `:dial_step` | `%{direction: :cw \| :ccw, angle: degrees}` (every `step_degrees`) | Head unit |
+| `:light` | `%{level: counts}` (light flickering as someone moves nearby, or switched on; a default wake source, since the motion sensors can go quiet for minutes) | Backplate light sensor |
 | `:button` | `:down \| :up` | Head unit (power chip button) |
 | `:motion` | `%{level: 0..10, near: boolean, far: boolean}` | Backplate PIRs |
 | `:climate` | `%{temperature_c: float, humidity_pct: float}` (corrected) | Backplate |
@@ -58,6 +59,7 @@ radius() :: 160                          # visible circle
 safe_radius() :: 145                     # keep text and icons inside this
 
 set_background(image) :: :ok             # 320×320 base layer, used by full redraws
+set_background("#1C1C1E") :: :ok        # a colour fills the visible disc, corners black
 put_image(x, y, image) :: :ok            # draw a rectangle into the back buffer
 fill_rect(x, y, w, h, color) :: :ok
 put_text(x, y, text, opts) :: :ok        # opts: font, size, color, align
@@ -115,11 +117,18 @@ set_click_on_step(boolean) :: :ok        # click on every :dial_step (default tr
 
 ```elixir
 wake() :: :ok
-sleep() :: :ok
+sleep() :: :ok                           # off now, even with holds
 awake?() :: boolean
+keep_awake(reason \\ nil) :: {:ok, hold} # wake, and no idle sleep until released
+release(hold) :: :ok                     # also automatic if the holder exits
+holds() :: [%{ref, reason, owner}]
 set_idle_timeout(ms | :infinity) :: :ok  # default 30_000
-set_wake_sources([:dial | :button | :motion]) :: :ok   # default all three
+set_wake_sources([:dial | :button | :motion | :light]) :: :ok   # default all four
 ```
+
+Holds stack: idle sleep resumes once the last one is released, with a fresh
+idle timeout. Use them for anything that must stay visible, such as an alarm
+or a settings screen.
 
 ## Backplate
 
@@ -135,7 +144,7 @@ set_threshold(level) :: :ok              # level counted as motion, default 2
 ```elixir
 read() :: %{temperature_c: float, humidity_pct: float,
             raw_temperature_c: float, board_temperatures_c: [float]}
-set_offset(delta_c) :: :ok               # self-heating correction, default -4.1
+set_offset(delta_c) :: :ok               # self-heating correction, default -3.7
 ```
 
 ### NestGen2.Battery
@@ -154,18 +163,36 @@ subscribe_raw() :: :ok                   # {:nest_gen2_backplate, cmd, payload}
 send_raw(cmd, payload) :: :ok
 ```
 
+## Clock
+
+`NestGen2.Clock` keeps UTC right: SNTP shortly after start and then hourly,
+stepping the system clock when it is 0.5 s or more out, and saving it to the RTC after every check.
+Local time and daylight saving are the app's job.
+
+```elixir
+NestGen2.Clock.sync() :: {:ok, %{server: term, offset_ms: integer}} | {:error, term}
+NestGen2.Clock.status() :: %{synced_at: DateTime.t() | nil, server: term, offset_ms: integer | nil, last_error: term}
+NestGen2.Clock.observe(utc :: DateTime.t(), source) :: :ok   # fallback, e.g. an HTTPS Date header
+```
+
 ## Configuration
 
 ```elixir
-config :nest_gen2_sdk,
+config :nest_gen2,
   install_dir: "/media/scratch/.nest_gen2_sdk",
   idle_timeout_ms: 30_000,
-  wake_sources: [:dial, :button, :motion],
+  wake_sources: [:dial, :button, :motion, :light],
   motion_threshold: 2,
+  light_wake_flicker_pct: 6,    # :light = a fall and a rise of this % within 5 s (not clouds) ...
+  light_wake_jump_pct: 40,      # ... or one jump this big (a light switched on)
+  light_wake_min_delta: 200,    # smaller changes (raw counts) don't count
   dial_counts_per_turn: 7800,
   dial_step_degrees: 10,
   click_on_step: true,
-  temperature_offset_c: -4.1
+  temperature_offset_c: -3.7,
+  time_servers: ["time.nest.com", "pool.ntp.org", :gateway],
+  clock_sync_interval_ms: 3_600_000,
+  clock_step_ms: 500
 ```
 
 ## Not in the API
@@ -177,8 +204,9 @@ CRCs, evdev record parsing and the native helper protocols are internal.
 ## foxbus against this API (sketch)
 
 ```elixir
-NestGen2.subscribe([:dial, :climate])
-NestGen2.Display.set_background(disc)
-# on {:nest_gen2, :dial, %{angle: a}}:   put_image(90, 90, fox_frame(a)); present()
-# on {:nest_gen2, :climate, %{temperature_c: t}}: put_text(160, 240, "#{t}°C", align: :center); present()
+NestGen2.Dial.set_step(45)
+NestGen2.subscribe([:dial_step, :button, :climate])
+# splash:  set_background(fox_image); put_text(160, 240, "#{t}°C", align: :center); present()
+# stops:   set_background("#1C1C1E"); put_text(...) per bus; present()
+# on {:nest_gen2, :dial_step, %{direction: d}}: move to the next/previous screen and redraw
 ```

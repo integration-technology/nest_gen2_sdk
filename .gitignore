@@ -1,5 +1,5 @@
 # Build output
-native/build/
+priv/*.tmp
 *.beam
 erl_crash.dump
 _build/
@@ -18,3 +18,8 @@ glyphs.raw
 *.log
 *.csv
 *.raw
+.idea/
+
+# Hex package builds (mix hex.build)
+*.tar
+c_src/build/

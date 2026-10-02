@@ -5,7 +5,7 @@ CC      := $(CROSS)gcc
 STRIP   := $(CROSS)strip
 CFLAGS  ?= -O2 -std=gnu17 -Wall -Wextra
 LDFLAGS ?= -static
-BUILD   := build
+BUILD   := ../priv
 
 HELPERS := evwatch bplink regread textrender
 
@@ -21,6 +21,6 @@ $(BUILD):
 	mkdir -p $@
 
 clean:
-	rm -rf $(BUILD)
+	rm -f $(addprefix $(BUILD)/,$(HELPERS))
 
 .PHONY: all clean
