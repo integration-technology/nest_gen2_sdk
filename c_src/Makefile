@@ -7,7 +7,7 @@ CFLAGS  ?= -O2 -std=gnu17 -Wall -Wextra
 LDFLAGS ?= -static
 BUILD   := ../priv
 
-HELPERS := evwatch bplink regread textrender
+HELPERS := evwatch bplink regread textrender entropyd
 
 all: $(addprefix $(BUILD)/,$(HELPERS))
 

@@ -5,9 +5,13 @@
  *
  * Records are parsed by offset rather than via struct input_event: the
  * 2.6.37 kernel uses 32-bit timevals (16-byte records), which newer musl
- * headers no longer match. */
+ * headers no longer match.
+ *
+ * Exits as soon as its stdin (the port) closes, so a VM that is killed
+ * doesn't leave it behind waiting for the next input event. */
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -30,7 +34,20 @@ int main(int argc, char **argv) {
     uint8_t buf[RECORD * 64];
     setvbuf(stdout, NULL, _IOLBF, 0);
 
+    struct pollfd fds[2] = {{.fd = fd, .events = POLLIN}, {.fd = 0, .events = POLLIN}};
+
     for (;;) {
+        if (poll(fds, 2, -1) < 0) {
+            if (errno == EINTR) continue;
+            perror("poll");
+            return 1;
+        }
+        /* The port never writes to us, so anything on stdin is its close. */
+        if (fds[1].revents & (POLLIN | POLLHUP | POLLERR))
+            return 0;
+        if (!(fds[0].revents & POLLIN))
+            continue;
+
         ssize_t n = read(fd, buf, sizeof(buf));
         if (n < 0) {
             if (errno == EINTR) continue;

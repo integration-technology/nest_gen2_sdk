@@ -9,6 +9,9 @@ while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
   network and nothing saved on failure), saved networks, forget; `:wifi` events.
   Passwords are stored as the derived WPA key.
 - `NestGen2.version/0`.
+- Platform: `entropyd`, started from rcS, keeps the kernel's entropy pool topped up. Without
+  it OpenSSL blocks on `/dev/random` at the first TLS connection and stalls the whole VM.
+- `evwatch` exits when its port closes instead of lingering until the next input event.
 - Platform: Wi-Fi from boot (`wifi.sh takeover` in rcS), and `wifi.sh guard`, which
   restarts `wpa_supplicant` from the saved configuration after 3 minutes without the
   gateway.

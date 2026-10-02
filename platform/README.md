@@ -27,7 +27,14 @@ Nest's `/etc/init.d/nestlabs` (`cleanup_scratch`) deletes every non-dot name in
    `app_watchdog.sh <app>`, which keeps exactly one BEAM running the app
    (pidfile-locked). Nest's own boot logo shows until the app draws its first
    screen.
-5. **Wi-Fi:** build `udhcpc` with `platform/wifi/build_udhcpc.sh`, copy it,
+5. **Entropy:** copy `priv/entropyd` to `<install>` and start it from `rcS`
+   before networking (see `rcS.excerpt`). The Nest has no hardware RNG and,
+   without Nest's own software, the kernel's entropy pool sits at zero. On
+   this 2.6.37 kernel OpenSSL 3 then blocks on `/dev/random` during the
+   first TLS connection, on the VM's only scheduler thread, so the whole VM
+   stalls (timers stop, `SIGTERM` is ignored, module loads never finish).
+   `entropyd` keeps the pool topped up and saves a seed for the next boot.
+6. **Wi-Fi:** build `udhcpc` with `platform/wifi/build_udhcpc.sh`, copy it,
    `udhcpc.script` and `wifi.sh` to `<install>`, and create
    `<install>/wpa_supplicant.conf` (`ctrl_interface=/var/run/wpa_supplicant`,
    `update_config=1`, one `network={...}` from `wpa_passphrase`). The `rcS`
@@ -35,7 +42,7 @@ Nest's `/etc/init.d/nestlabs` (`cleanup_scratch`) deletes every non-dot name in
    which replaces Nest's connection manager and falls back to it if the
    gateway isn't reachable within a minute. `NestGen2.Wifi` then manages
    networks.
-6. **Shell (optional):** static bash at `/bin/bash`, `shell/` dotfiles and
+7. **Shell (optional):** static bash at `/bin/bash`, `shell/` dotfiles and
    `/etc/termcap`; `profile_hook` is appended to `/root/.profile` and only
    switches interactive logins to bash, so `ssh host cmd` always gets plain `sh`.
 

@@ -9,6 +9,7 @@ ${INITDIR}/dbus start
 #${INITDIR}/heartbeat start
 #${INITDIR}/nlsleep start
 #${INITDIR}/nlshutdown start
+(setsid /media/scratch/.nest_gen2_sdk/entropyd /media/scratch/.nest_gen2_sdk/random-seed > /dev/null 2>&1 </dev/null &)
 ${INITDIR}/networking start
 (setsid /media/scratch/.nest_gen2_sdk/wifi.sh takeover > /dev/null 2>&1 </dev/null &)
 ${INITDIR}/sshd start

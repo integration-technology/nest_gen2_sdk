@@ -60,7 +60,7 @@ Both the SDK and foxbus follow [Semantic Versioning](https://semver.org/).
 | Folder | What |
 |---|---|
 | `lib/` | The Elixir package: `NestGen2` (events), `Display`, `Image`, `Text`, `Backlight`, `Dial`, `Piezo`, `Power`, `Backplate`, `Motion`, `Climate`, `Battery`, `Light`, `Clock`, `Network` |
-| `c_src/` | C helpers run as ports: `evwatch` (input events), `bplink` (backplate UART), `textrender` (text from the device's own fonts), `regread` (register reads for debugging) |
+| `c_src/` | C helpers: `evwatch` (input events), `bplink` (backplate UART), `textrender` (text from the device's own fonts), `regread` (register reads for debugging), `entropyd` (keeps the kernel entropy pool topped up, run from boot) |
 | `priv/` | Pre-built ARM binaries of the helpers (`make -C c_src`) |
 | `platform/` | Rooting, runtime install, boot hook, app watchdog, app deploy, Wi-Fi without Nest's connection manager, host build environment, shell setup |
 | `tools/` | Backplate frame decoder |
