@@ -71,9 +71,12 @@ Both the SDK and foxbus follow [Semantic Versioning](https://semver.org/).
 The Nest runs OTP 26 / Elixir 1.17, so build with that toolchain:
 
 ```sh
-. platform/host_env.sh
-mix test
+platform/mix26 test
 ```
+
+`platform/mix26` runs `mix` with that toolchain (and its own Hex) whatever your
+shell has set up, including version managers such as mise that restore their own
+`MIX_HOME` before every prompt.
 
 ## Layers
 

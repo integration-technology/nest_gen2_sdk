@@ -3,6 +3,10 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
+## Unreleased
+
+- `platform/mix26`: run `mix` with the Nest's toolchain regardless of the shell's version manager.
+
 ## 0.1.0 (2026-10-02)
 
 First release.

@@ -1,0 +1,10 @@
+#!/bin/sh
+# Runs mix with the toolchain the Nest needs (OTP 26 / Elixir 1.17 and their own
+# Hex), whatever the calling shell has set up. Sourcing host_env.sh on one line
+# and running mix on the next isn't enough with tools like mise, which restore
+# their own MIX_HOME/MIX_ARCHIVES before every prompt.
+#
+#   platform/mix26 test
+#   platform/mix26 hex.publish package
+. "$(dirname "$0")/host_env.sh"
+exec mix "$@"
