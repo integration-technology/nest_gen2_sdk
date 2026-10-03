@@ -3,6 +3,12 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
+## Unreleased
+
+- Platform: `wifi.sh add SSID` saves another network over SSH (the password is asked for
+  without echo, and only the derived key is stored), so a phone hotspot can be set up
+  before taking the Nest somewhere new.
+
 ## 0.2.1 (2026-10-03)
 
 - The backplate is woken the way Nest's own client does it, each time the link opens:
