@@ -39,9 +39,12 @@ Nest's `/etc/init.d/nestlabs` (`cleanup_scratch`) deletes every non-dot name in
    `<install>/wpa_supplicant.conf` (`ctrl_interface=/var/run/wpa_supplicant`,
    `update_config=1`, one `network={...}` from `wpa_passphrase`). The `rcS`
    line after `networking start` (see `rcS.excerpt`) runs `wifi.sh takeover`,
-   which replaces Nest's connection manager and falls back to it if the
-   gateway isn't reachable within a minute. `NestGen2.Wifi` then manages
-   networks.
+   which replaces Nest's connection manager and keeps retrying (restarting
+   `wpa_supplicant` every 3 minutes) until the gateway answers. To try it on a
+   Nest still running its own software, run `wifi.sh trial` over SSH first: it
+   hands back to Nest's connection manager if the gateway isn't reachable
+   within a minute. `NestGen2.Wifi` then manages networks; Wi-Fi events are
+   logged to `<install>/wifi.log`.
 7. **Shell (optional):** static bash at `/bin/bash`, `shell/` dotfiles and
    `/etc/termcap`; `profile_hook` is appended to `/root/.profile` and only
    switches interactive logins to bash, so `ssh host cmd` always gets plain `sh`.

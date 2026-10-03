@@ -4,8 +4,13 @@
 #   wifi.sh start      stop connmand, run wpa_supplicant on our config, run udhcpc
 #   wifi.sh stop       stop ours
 #   wifi.sh stock      stop ours and give Wi-Fi back to Nest's connmand
-#   wifi.sh takeover   start, and go back to stock if the gateway isn't
-#                      reachable within a minute (safe to run over SSH)
+#   wifi.sh takeover   start; if the gateway isn't reachable within a minute,
+#                      keep trying (the guard restarts wpa_supplicant every
+#                      3 minutes) rather than handing back to connmand, which
+#                      does nothing without the rest of Nest's software
+#   wifi.sh trial      start, and go back to stock if the gateway isn't
+#                      reachable within a minute (for trying this over SSH on
+#                      a Nest still running its own software)
 #   wifi.sh guard      (started by start) every 30 s check the gateway; after
 #                      3 minutes unreachable, restart wpa_supplicant from the
 #                      saved config, so a failed network switch can't leave the
@@ -23,9 +28,16 @@ CONF=$B/wpa_supplicant.conf
 WPA_PID=/var/run/wpa_supplicant.pid
 DHCP_PID=/var/run/udhcpc.pid
 GUARD_PID=/var/run/nest_gen2_wifi_guard.pid
-LOG=/tmp/nest_gen2_wifi.log
+# On flash, so the log survives the reboot that usually follows a Wi-Fi
+# problem; a few lines per boot, trimmed to the last 200.
+LOG=$B/wifi.log
 
 log() { echo "$(date '+%F %T') $*" >> "$LOG"; }
+
+trim_log() {
+  [ -f "$LOG" ] && [ "$(wc -l < "$LOG")" -gt 400 ] &&
+    tail -n 200 "$LOG" > "$LOG.new" && mv -f "$LOG.new" "$LOG"
+}
 
 kill_named() { # comm name
   for p in /proc/[0-9]*; do
@@ -69,8 +81,9 @@ guard() {
     else
       down=$((down + 1))
       if [ $down -ge 6 ]; then
-        log "guard: gateway unreachable for 3 minutes; restarting wpa_supplicant from saved config"
+        log "guard: gateway unreachable for 3 minutes ($(wifi_state)); restarting wpa_supplicant from saved config"
         restart_wpa
+        log "guard: after restart: $(wifi_state)"
         down=0
       fi
     fi
@@ -100,17 +113,38 @@ gateway_ok() {
   [ -n "$gw" ] && ping -c 1 -W 2 "$gw" >/dev/null 2>&1
 }
 
-takeover() {
-  start
+wait_gateway() { # seconds
   i=0
-  while [ $i -lt 12 ]; do
+  while [ $i -lt $(($1 / 5)) ]; do
     sleep 5
-    if gateway_ok; then log "takeover ok after $(( (i + 1) * 5 ))s"; return 0; fi
+    if gateway_ok; then log "gateway reachable after $(( (i + 1) * 5 ))s"; return 0; fi
     i=$((i + 1))
   done
-  log "takeover failed: gateway unreachable for 60s; reverting"
+  return 1
+}
+
+takeover() {
+  trim_log
+  log "boot: taking over Wi-Fi"
+  start
+  wait_gateway 60 && return 0
+  log "no gateway after 60s ($(wifi_state)); the guard keeps retrying"
+  return 1
+}
+
+trial() {
+  start
+  wait_gateway 60 && return 0
+  log "trial failed: gateway unreachable for 60s; reverting"
   stock
   return 1
+}
+
+# For the log: whether wpa_supplicant is up and which address wlan0 has.
+wifi_state() {
+  ls /var/run/wpa_supplicant/$IFACE >/dev/null 2>&1 || { echo "wpa_supplicant not running"; return; }
+  ip -4 addr show "$IFACE" | sed -n 's/.*inet \([0-9./]*\).*/inet \1/p' | head -1 | grep . ||
+    echo "no address"
 }
 
 add() {
@@ -142,7 +176,8 @@ case "$1" in
   stop) stop ;;
   stock) stock ;;
   takeover) takeover ;;
+  trial) trial ;;
   guard) guard ;;
   add) add "$2" ;;
-  *) echo "usage: $0 start|stop|stock|takeover|guard|add SSID"; exit 1 ;;
+  *) echo "usage: $0 start|stop|stock|takeover|trial|guard|add SSID"; exit 1 ;;
 esac

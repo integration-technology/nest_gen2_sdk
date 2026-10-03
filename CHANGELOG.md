@@ -9,6 +9,10 @@ while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
   without echo, and only the derived key is stored), so a phone hotspot can be set up
   before taking the Nest somewhere new.
 - Platform: `app_watchdog.sh` keeps the previous run's log as `<app>.log.1`.
+- Platform: at boot, `wifi.sh takeover` no longer hands Wi-Fi back to Nest's connection
+  manager when the gateway is slow to answer (which, with Nest's software stopped, left the
+  Nest offline until the next reboot); it keeps retrying. The old behaviour is `wifi.sh trial`.
+  The Wi-Fi log moves to `<install>/wifi.log` so it survives a reboot.
 
 ## 0.2.1 (2026-10-03)
 
