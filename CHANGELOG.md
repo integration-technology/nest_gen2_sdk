@@ -3,7 +3,7 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
-## 0.2.0 (unreleased)
+## 0.2.0 (2026-10-03)
 
 - `NestGen2.Wifi`: status, scan, connect (with automatic fall-back to the previous
   network and nothing saved on failure), saved networks, forget; `:wifi` events.

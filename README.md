@@ -13,12 +13,12 @@ docs. Expect API changes between 0.x minor versions (see Versioning).
 
 ```elixir
 def deps do
-  [{:nest_gen2, "~> 0.1.0"}]
+  [{:nest_gen2, "~> 0.2.0"}]
 end
 ```
 
 Before the Hex release, or to track a tag: `{:nest_gen2, github:
-"integration-technology/nest_gen2_sdk", tag: "v0.1.0"}`. The device side
+"integration-technology/nest_gen2_sdk", tag: "v0.2.0"}`. The device side
 (rooting, runtime, boot hook) is described in [`platform/README.md`](platform/README.md).
 
 ## Example app: foxbus
@@ -54,6 +54,7 @@ Both the SDK and foxbus follow [Semantic Versioning](https://semver.org/).
 | foxbus | nest_gen2 |
 |---|---|
 | 0.1.x | 0.1.x |
+| 0.2.x | 0.2.x (adds the Wi-Fi settings screens) |
 
 ## Layout
 
