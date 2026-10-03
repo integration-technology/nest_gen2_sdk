@@ -46,6 +46,8 @@ while true; do
     EXTRA=""
     [ -f "$BASE/$APP.args" ] && EXTRA=$(cat "$BASE/$APP.args")
     rm -f "$PIDFILE"
+    # Keep the last run's log: after a crash or a reboot it is the evidence.
+    [ -s "$BASE/$APP.log" ] && mv -f "$BASE/$APP.log" "$BASE/$APP.log.1"
     log "no running $APP, launching"
     # -noinput: a daemon with no console (-noshell still reads stdin).
     # multi_time_warp: Erlang time follows the system clock when NestGen2.Clock sets it.

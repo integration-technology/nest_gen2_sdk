@@ -8,6 +8,7 @@ while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 - Platform: `wifi.sh add SSID` saves another network over SSH (the password is asked for
   without echo, and only the derived key is stored), so a phone hotspot can be set up
   before taking the Nest somewhere new.
+- Platform: `app_watchdog.sh` keeps the previous run's log as `<app>.log.1`.
 
 ## 0.2.1 (2026-10-03)
 
