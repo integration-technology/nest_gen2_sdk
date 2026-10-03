@@ -27,7 +27,24 @@ defmodule NestGen2.Backplate.Decode do
   # a room reads in the thousands to tens of thousands.
   def decode(0x000A, <<level::16-little, _::binary>>), do: {:light, level}
 
+  # Sent after the backplate restarts (on a BREAK or a reset). The head unit
+  # echoes it back as 0x8f before the backplate starts streaming readings.
+  def decode(0x0004, payload), do: {:hello, payload}
+
+  # Text messages: "BRK" on a BREAK, the firmware banner, sensor diagnostics.
+  def decode(0x0001, text), do: {:message, printable(text)}
+
+  # Answers to the 0x98-0x9f queries made during the start-up handshake.
+  def decode(0x0018, text), do: {:info, :firmware, printable(text)}
+  def decode(0x0019, text), do: {:info, :build, printable(text)}
+  def decode(0x001B, text), do: {:info, :hardware, printable(text)}
+  def decode(0x001C, text), do: {:info, :bootloader, printable(text)}
+  def decode(0x001E, text), do: {:info, :model, printable(text)}
+  def decode(0x001F, text), do: {:info, :serial, printable(text)}
+
   def decode(_cmd, _payload), do: :unknown
+
+  defp printable(bin), do: bin |> String.trim_trailing(<<0>>) |> String.replace_invalid("?")
 
   @doc "Parses a bplink `rx` line: \"rx 000b 01ce0f...\"."
   def parse_line("rx " <> rest) do

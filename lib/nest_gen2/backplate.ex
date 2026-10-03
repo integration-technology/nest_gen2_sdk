@@ -4,7 +4,10 @@ defmodule NestGen2.Backplate do
 
   Always runs the keep-alive: every 30 s it repeats the stock client's `0x83`,
   `0xa2`, `0xa3` exchange, without which the backplate power-cycles the head unit
-  about 36 minutes after it last heard from it. Decoded readings are published as
+  about 36 minutes after it last heard from it. Each time the link opens it
+  wakes the backplate the way Nest's own client does (a serial BREAK, then
+  answering its hello), and does so again if the backplate falls silent, which
+  it does after a reset or a power loss. Decoded readings are published as
   `:motion`, `:climate` and `:battery` events and are available through
   `NestGen2.Motion`, `NestGen2.Climate` and `NestGen2.Battery`.
 
@@ -13,13 +16,18 @@ defmodule NestGen2.Backplate do
   """
   use GenServer
   require Logger
-  alias NestGen2.Backplate.Decode
+  alias NestGen2.Backplate.{Decode, Handshake}
 
   @tty "/dev/ttyO2"
   @cycle_ms 30_000
   @a2_delay_ms 1900
   @a3_delay_ms 150
   @reopen_ms 5000
+  # The backplate sends readings every second; this long without one means it
+  # has gone silent and needs waking, at most once per @wake_retry_ms.
+  @silence_check_ms 5_000
+  @silent_ms 15_000
+  @wake_retry_ms 60_000
   @raw_key :__backplate_raw__
   # Light samples (one a second) compared when looking for a sudden change.
   @light_window 5
@@ -53,12 +61,17 @@ defmodule NestGen2.Backplate do
   @impl true
   def init(nil) do
     send(self(), :cycle)
+    Process.send_after(self(), :silence_check, @silence_check_ms)
 
     {:ok,
      %{
        port: open(),
        frames: 0,
        last_frame_at: nil,
+       last_rx: nil,
+       handshake: 0,
+       last_handshake: nil,
+       info: %{},
        motion_level: 0,
        near: false,
        far: false,
@@ -116,12 +129,42 @@ defmodule NestGen2.Backplate do
           for {pid, _} <- entries, do: send(pid, {:nest_gen2_backplate, cmd, payload})
         end)
 
-        s = %{s | frames: s.frames + 1, last_frame_at: DateTime.utc_now()}
+        s = %{s | frames: s.frames + 1, last_frame_at: DateTime.utc_now(), last_rx: now()}
         {:noreply, handle_frame(Decode.decode(cmd, payload), s)}
 
       :ignore ->
         if String.starts_with?(line, "err"), do: Logger.warning("bplink: #{line}")
-        {:noreply, s}
+        # bplink has opened the port: wake the backplate.
+        if String.starts_with?(line, "ready"), do: {:noreply, wake(s)}, else: {:noreply, s}
+    end
+  end
+
+  # One step of the wake handshake; steps from an earlier handshake are dropped.
+  def handle_info({:handshake, n, action, rest}, %{handshake: n} = s) do
+    case action do
+      {:tx, cmd, payload} -> tx(s, cmd, payload)
+      :brk -> brk(s)
+      :no_hello -> Logger.warning("backplate did not answer the wake-up BREAK")
+      :done -> Logger.info("backplate awake: #{inspect(s.info)}")
+    end
+
+    {:noreply, steps(s, rest)}
+  end
+
+  def handle_info({:handshake, _stale, _action, _rest}, s), do: {:noreply, s}
+
+  def handle_info(:silence_check, s) do
+    Process.send_after(self(), :silence_check, @silence_check_ms)
+
+    if s.port != nil and
+         Handshake.wake?(now(), s.last_rx, s.last_handshake, @silent_ms, @wake_retry_ms) do
+      Logger.warning(
+        "backplate silent for #{now() - (s.last_rx || s.last_handshake)} ms; waking it"
+      )
+
+      {:noreply, wake(s)}
+    else
+      {:noreply, s}
     end
   end
 
@@ -180,7 +223,34 @@ defmodule NestGen2.Backplate do
     %{s | light: level, light_window: window}
   end
 
+  # The backplate restarted (after our BREAK, or by itself): answer its hello.
+  defp handle_frame({:hello, hello}, s) do
+    s = %{s | handshake: s.handshake + 1}
+    steps(s, Handshake.hello_steps(hello) ++ [{0, :done}])
+  end
+
+  defp handle_frame({:info, key, value}, s), do: %{s | info: Map.put(s.info, key, value)}
+
+  defp handle_frame({:message, text}, s) do
+    Logger.debug("backplate: #{text}")
+    s
+  end
+
   defp handle_frame(:unknown, s), do: s
+
+  defp wake(s) do
+    s = %{s | handshake: s.handshake + 1, last_handshake: now()}
+    steps(s, Handshake.start_steps() ++ [{Handshake.hello_timeout_ms(), :no_hello}])
+  end
+
+  defp steps(s, []), do: s
+
+  defp steps(s, [{delay, action} | rest]) do
+    Process.send_after(self(), {:handshake, s.handshake, action, rest}, delay)
+    s
+  end
+
+  defp now, do: System.monotonic_time(:millisecond)
 
   # Optional, for calibrating the temperature correction: when :calibration_file
   # is set (use a tmpfs path such as /tmp, not flash), keep the latest raw
@@ -208,6 +278,13 @@ defmodule NestGen2.Backplate do
     hex = Base.encode16(payload, case: :lower)
     NestGen2.Trace.write("tx #{Integer.to_string(cmd, 16)} #{hex}")
     Port.command(port, "tx #{Integer.to_string(cmd, 16)} #{hex}\n")
+  end
+
+  defp brk(%{port: nil}), do: :ok
+
+  defp brk(%{port: port}) do
+    NestGen2.Trace.write("brk")
+    Port.command(port, "brk\n")
   end
 
   defp open do

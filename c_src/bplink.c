@@ -2,6 +2,7 @@
  *
  * stdout: one line per valid frame received:   rx <cmd hex4> <payload hex>
  * stdin:  one command per line:                tx <cmd hex> [payload hex]
+ *                                               brk   (flush, then a 100 ms BREAK)
  * Exits when stdin closes, so it never outlives its owner.
  *
  * Frame: d5 aa 96 | cmd u16le | len u16le | payload | crc16-xmodem(cmd..payload) u16le
@@ -12,6 +13,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/ioctl.h>
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
@@ -72,6 +74,13 @@ static int send_frame(int fd, unsigned cmd, const uint8_t *p, size_t n) {
 static void handle_command(int fd, char *line) {
     char *save, *verb = strtok_r(line, " \t\r\n", &save);
     if (!verb) return;
+    if (strcmp(verb, "brk") == 0) {
+        /* What Nest's client does at start: the backplate restarts on a BREAK
+         * and then says hello (0x0004), which wakes it from its silent state. */
+        tcflush(fd, TCIOFLUSH);
+        if (ioctl(fd, TCSBRKP, 1) < 0) printf("err brk %s\n", strerror(errno));
+        return;
+    }
     if (strcmp(verb, "tx") != 0) { printf("err unknown %s\n", verb); return; }
     char *cmds = strtok_r(NULL, " \t\r\n", &save);
     char *hex = strtok_r(NULL, " \t\r\n", &save);

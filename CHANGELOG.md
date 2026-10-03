@@ -3,6 +3,15 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
+## 0.2.1 (2026-10-03)
+
+- The backplate is woken the way Nest's own client does it, each time the link opens:
+  a serial BREAK, then answering its 0x0004 hello (echoed as 0x8f) and its start-up
+  queries. After a reset or a power loss the backplate otherwise stays silent (no motion,
+  light or climate readings, and the green LED flashing) until the stock firmware runs.
+- If no backplate message arrives for 15 s, the handshake runs again (at most once a minute).
+- `bplink` accepts `brk` (flush, then a 100 ms BREAK).
+
 ## 0.2.0 (2026-10-03)
 
 - `NestGen2.Wifi`: status, scan, connect (with automatic fall-back to the previous
