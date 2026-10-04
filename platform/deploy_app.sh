@@ -2,8 +2,13 @@
 # Deploys an app built on nest_gen2 to the Nest: the app and its dependencies,
 # never the SDK itself (that is installed and versioned separately).
 #
-# Usage: deploy_app.sh <app_dir> [--no-test]
+# Usage: deploy_app.sh <app_dir> [--no-test] [--sdk]
 #   e.g. platform/deploy_app.sh ../foxbus
+#
+#   --no-test  skip `mix test`
+#   --sdk      also install the nest_gen2 version the app was built against,
+#              replacing a different one on the Nest (every app on the Nest
+#              shares one SDK). The first deploy to a Nest always installs it.
 #
 # Which Nest: NEST_HOST (its address or name) and optionally NEST_KEY (an SSH
 # private key; otherwise ssh's defaults and agent are used), from the
@@ -13,17 +18,27 @@
 #     NEST_KEY=$HOME/.ssh/<nest-key>
 #
 # Steps: mix test, prod build, check the app was built against the SDK version
-# installed on the Nest, upload <app> and its other deps to <install>/apps,
+# installed on the Nest (or install it), upload <app> and its other deps to
+# <install>/apps,
 # sync the flash, restart the app (app_watchdog.sh relaunches it) and show the
 # first lines of its log.
 set -e
 
-APP_DIR=${1:?usage: deploy_app.sh <app_dir> [--no-test]}
+APP_DIR=${1:?usage: deploy_app.sh <app_dir> [--no-test] [--sdk]}
+shift
 RUN_TESTS=yes
-[ "$2" = "--no-test" ] && RUN_TESTS=no
+WITH_SDK=no
+for opt in "$@"; do
+  case "$opt" in
+    --no-test) RUN_TESTS=no ;;
+    --sdk) WITH_SDK=yes ;;
+    *) echo "unknown option $opt"; exit 1 ;;
+  esac
+done
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/host_env.sh"
+nest_toolchain_ok || exit 1
 
 TARGET=${NEST_TARGET:-$HOME/.config/nest_gen2/target}
 # shellcheck disable=SC1090
@@ -54,18 +69,23 @@ MIX_ENV=prod mix compile
 vsn() { sed -n 's/.*{vsn,"\([^"]*\)"}.*/\1/p' "$1" | head -1; }
 BUILT_SDK=$(vsn "_build/prod/lib/$SDK_APP/ebin/$SDK_APP.app")
 DEVICE_SDK=$(nest "sed -n 's/.*{vsn,\"\\([^\"]*\\)\"}.*/\\1/p' $BASE/apps/$SDK_APP/ebin/$SDK_APP.app" | head -1)
-echo "== SDK: built against $BUILT_SDK, installed on the Nest $DEVICE_SDK"
-if [ "$BUILT_SDK" != "$DEVICE_SDK" ]; then
-  echo "!! SDK version mismatch: install nest_gen2 $BUILT_SDK on the Nest first, or build against $DEVICE_SDK."
+echo "== SDK: built against $BUILT_SDK, installed on the Nest ${DEVICE_SDK:-(none)}"
+if [ -z "$DEVICE_SDK" ]; then
+  WITH_SDK=yes
+elif [ "$BUILT_SDK" != "$DEVICE_SDK" ] && [ "$WITH_SDK" != yes ]; then
+  echo "!! SDK version mismatch: the Nest has nest_gen2 $DEVICE_SDK. Build against it, or"
+  echo "   add --sdk to install $BUILT_SDK (other apps on the Nest then use it too)."
   exit 1
 fi
 
 # The app and every dependency except the SDK, with priv/ files copied
 # rather than symlinked.
 LIBS=""
+NAMES=""
 for d in _build/prod/lib/*/; do
   name=$(basename "$d")
-  [ "$name" = "$SDK_APP" ] && continue
+  [ "$name" = "$SDK_APP" ] && [ "$WITH_SDK" != yes ] && continue
+  NAMES="$NAMES $name"
   LIBS="$LIBS $name/ebin"
   [ -e "$d/priv" ] && LIBS="$LIBS $name/priv"
 done
@@ -73,7 +93,8 @@ echo "== uploading:$LIBS"
 STAMP="$REV deployed $(date -u '+%Y-%m-%dT%H:%M:%SZ') by $(id -un)"
 # shellcheck disable=SC2086
 tar -C _build/prod/lib -chf - $LIBS |
-  nest "mkdir -p $BASE/apps && tar -C $BASE/apps -xf - && echo '$STAMP' > $BASE/apps/$APP/DEPLOYED && sync"
+  nest "mkdir -p $BASE/apps && for n in$NAMES; do rm -rf $BASE/apps/\$n/ebin; done &&
+    tar -C $BASE/apps -xf - && echo '$STAMP' > $BASE/apps/$APP/DEPLOYED && sync"
 
 echo "== restarting $APP"
 # app_watchdog.sh relaunches it within 5 s with a new pid and a fresh log.

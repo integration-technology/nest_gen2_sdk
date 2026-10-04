@@ -1,0 +1,3 @@
+%{
+  "nest_gen2": {:hex, :nest_gen2, "0.2.1", "b2b88904094af10690f9546fe071f8b30ef9248e9fbfd7f4d68a60341ac7b31d", [:mix], [], "hexpm", "1a43791defdbe6829f3e6bf6c19888627954c5c0af06e36455c3b9fae445200b"},
+}

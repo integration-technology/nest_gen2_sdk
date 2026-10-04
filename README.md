@@ -13,13 +13,14 @@ docs. Expect API changes between 0.x minor versions (see Versioning).
 
 ```elixir
 def deps do
-  [{:nest_gen2, "~> 0.2.0"}]
+  [{:nest_gen2, "~> 0.2.1"}]
 end
 ```
 
-Before the Hex release, or to track a tag: `{:nest_gen2, github:
-"integration-technology/nest_gen2_sdk", tag: "v0.2.0"}`. The device side
-(rooting, runtime, boot hook) is described in [`platform/README.md`](platform/README.md).
+**Setting up a Nest:** [docs/install.md](docs/install.md) goes from a 2nd-gen
+Nest thermostat to the example app running on it, then to your own app
+(starting from [`examples/hello_nest`](examples/hello_nest)). `platform/install.sh`
+does the device side; [`platform/README.md`](platform/README.md) explains it.
 
 ## Example app: foxbus
 

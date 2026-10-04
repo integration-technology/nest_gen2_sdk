@@ -40,6 +40,15 @@ echo $$ > "$LOCK"
 log "watchdog starting for $APP"
 
 while true; do
+  # Installed but no app deployed yet (deploy_app.sh puts it in apps/): wait
+  # quietly rather than launching a VM that can only fail.
+  if [ ! -d "$BASE/apps/$APP/ebin" ]; then
+    [ -z "$WAITING" ] && log "waiting for $APP to be deployed to $BASE/apps/$APP"
+    WAITING=1
+    sleep 10
+    continue
+  fi
+  WAITING=
   if ! is_running; then
     CODE_PATHS="-pa $BASE/elixir/lib/elixir/ebin -pa $BASE/elixir/lib/logger/ebin"
     for d in "$BASE"/apps/*/ebin; do CODE_PATHS="$CODE_PATHS -pa $d"; done

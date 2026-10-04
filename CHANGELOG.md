@@ -5,6 +5,17 @@ while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
 ## Unreleased
 
+- **Install guide and scripts.** [docs/install.md](docs/install.md) goes from a 2nd-gen
+  Nest flashed with No Longer Evil to foxbus and then your own app.
+  `platform/install.sh <nest-address>` installs the platform (SSH key, a prebuilt runtime
+  bundle with a checked sha256, Wi-Fi, boot script with the original kept as `rcS.stock`)
+  and `--check` reports what's running; `platform/uninstall.sh` restores the original.
+- `examples/hello_nest`: the smallest useful app, as a starting point.
+- `deploy_app.sh` installs the SDK with the app on the first deploy to a Nest, and with
+  `--sdk` replaces a different version; it removes an updated library's old `.beam` files.
+- `app_watchdog.sh` waits quietly until the app has been deployed.
+- `host_env.sh` works with OTP 26 / Elixir 1.17 from mise or asdf, and `deploy_app.sh`
+  stops early with what to install if the toolchain is wrong.
 - Platform: `wifi.sh add SSID` saves another network over SSH (the password is asked for
   without echo, and only the derived key is stored), so a phone hotspot can be set up
   before taking the Nest somewhere new.

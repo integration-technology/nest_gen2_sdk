@@ -9,7 +9,14 @@ Everything lives in `/media/scratch/.nest_gen2_sdk`. The leading dot is required
 Nest's `/etc/init.d/nestlabs` (`cleanup_scratch`) deletes every non-dot name in
 `/media/scratch` whenever the stock stack starts.
 
-## Steps (current, manual)
+## Install
+
+`install.sh <nest-address>` does all of this on a Nest flashed with No Longer
+Evil, `uninstall.sh` undoes it, and [docs/install.md](../docs/install.md) is the
+step-by-step guide. The steps below are what it does and why, for doing it by
+hand or understanding what's on the device.
+
+## Steps
 
 1. **Root** with No Longer Evil: USB DFU mode (hold the display 10–15 s on USB),
    flash with the NLE installer. First boot has root password `nolongerevil`;
@@ -20,6 +27,9 @@ Nest's `/etc/init.d/nestlabs` (`cleanup_scratch`) deletes every non-dot name in
    (see `rcS.excerpt`). BusyBox `sed` here needs one call per line.
 3. **Runtime:** cross-compiled OTP 26 and Elixir 1.17, extracted to
    `<install>/otp` and `<install>/elixir`. The OTP launcher is relocatable.
+   `install.sh` downloads them as one bundle (with `udhcpc`) from the
+   `runtime-1` GitHub release; maintainers make it with
+   `runtime/package_runtime.sh`.
    Build notes: toolchain `arm-nest-linux-musleabi`, `CFLAGS="-O2 -g -march=armv7-a"`
    (the default armv5te needs 64-bit atomics the 2.6.37 kernel lacks),
    `--without-termcap`; build Elixir against a native OTP 26.
