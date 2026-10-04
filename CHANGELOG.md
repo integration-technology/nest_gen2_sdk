@@ -3,7 +3,7 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
-## Unreleased
+## 0.2.2 (2026-10-04)
 
 - **Install guide and scripts.** [docs/install.md](docs/install.md) goes from a 2nd-gen
   Nest flashed with No Longer Evil to foxbus and then your own app.
