@@ -165,7 +165,9 @@ No Longer Evil's own software, see [Undoing it](#undoing-it).
 
 [foxbus](https://github.com/integration-technology/foxbus) shows live bus
 departures, the room temperature, disruption warnings and an arrival alarm. Get
-it next to the SDK and set it up for your own stops as its README describes:
+it next to the SDK and set it up for your own stops as described in its README,
+under [Run foxbus on your own Nest](https://github.com/integration-technology/foxbus#run-foxbus-on-your-own-nest)
+(it shows Carousel Buses stops only, for now):
 
     cd ..
     git clone https://github.com/integration-technology/foxbus.git
