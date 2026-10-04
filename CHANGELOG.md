@@ -11,6 +11,8 @@ while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
   bundle with a checked sha256, Wi-Fi, boot script with the original kept as `rcS.stock`)
   and `--check` reports what's running; `platform/uninstall.sh` restores the original.
 - `examples/hello_nest`: the smallest useful app, as a starting point.
+- The Hex description, README and package links say it's for a Wi-Fi-connected Nest rooted
+  with No Longer Evil, and link to the install guide and NLE's rooting instructions.
 - `deploy_app.sh` installs the SDK with the app on the first deploy to a Nest, and with
   `--sdk` replaces a different version; it removes an updated library's old `.beam` files.
 - `app_watchdog.sh` waits quietly until the app has been deployed.

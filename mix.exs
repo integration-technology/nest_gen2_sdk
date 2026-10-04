@@ -14,8 +14,9 @@ defmodule NestGen2.MixProject do
       deps: deps(),
       aliases: [test: "test --no-start"],
       description:
-        "Elixir SDK for a rooted Nest Learning Thermostat (2nd gen): round display, " <>
-          "dial, click, motion and climate sensors.",
+        "Run your own Elixir app on a Wi-Fi-connected Nest Learning Thermostat (2nd gen) " <>
+          "rooted with No Longer Evil: round display, dial and press, piezo, motion, light " <>
+          "and climate sensors, Wi-Fi setup, and scripts to install it and deploy apps.",
       package: package(),
       source_url: @source_url
     ]
@@ -39,10 +40,14 @@ defmodule NestGen2.MixProject do
         "GitHub" => @source_url,
         "Issues" => "#{@source_url}/issues",
         "Changelog" => "#{@source_url}/blob/v#{@version}/CHANGELOG.md",
+        "Install guide" => "#{@source_url}/blob/main/docs/install.md",
+        "Rooting (No Longer Evil)" => "https://docs.nolongerevil.com/hosted/installation",
         "Example app (foxbus)" => "https://github.com/integration-technology/foxbus"
       },
       files:
-        ~w(lib priv c_src/*.c c_src/Makefile c_src/vendor platform docs/api.md mix.exs README.md CHANGELOG.md LICENSE)
+        ~w(lib priv c_src/*.c c_src/Makefile c_src/vendor platform docs/api.md docs/install.md
+           examples/hello_nest/lib examples/hello_nest/mix.exs examples/hello_nest/README.md
+           mix.exs README.md CHANGELOG.md LICENSE)
     ]
   end
 end

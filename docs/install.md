@@ -27,35 +27,85 @@ step says what you should see; if you don't see it, check
 - **A 2.4 GHz Wi-Fi network.** The Nest's radio doesn't do 5 GHz. (A phone
   hotspot works; on an iPhone turn on *Maximize Compatibility*.)
 
-Throughout, `<nest-address>` means the Nest's IP address on your network, for
-example as listed by your router.
+Throughout, `<nest-address>` means the Nest's IP address on your network
+(step 1 shows where to find it).
 
-## 1. Flash No Longer Evil
+## 1. Put the Nest on your Wi-Fi and note its address
+
+Do this first, with the Nest's own (stock) software: after rooting you need the
+Nest on your network to reach it, and it keeps the network it joined.
+
+1. Power the Nest (on its base or stand) and go through its on-screen setup, or
+   later **Settings → Network**. Choose your 2.4 GHz network and type its
+   password with the ring.
+2. If it insists on pairing with a Heat Link you don't have, hold the display
+   down for 10 seconds to restart it; it then goes straight to Wi-Fi setup.
+3. Note its address: **Settings → Technical Info → Network** shows the IP
+   address (e.g. `192.0.2.50`). That's `<nest-address>` in the rest of this
+   guide. Your router's list of devices shows it too.
+4. Recommended: give it a fixed address in your router (a "DHCP reservation"
+   for the Nest), so the address stays the same through flashing and restarts.
+
+While you're in **Technical Info**, check the display model starts with **2**.
+
+## 2. Root it with No Longer Evil
 
 [No Longer Evil](https://nolongerevil.com) (NLE) replaces the Nest's bootloader
-and kernel so the thermostat works without Google's servers, and opens SSH.
+and kernel so it works without Google's servers, and gives you `root` over SSH.
 This SDK runs on top of it.
 
-1. Follow NLE's [installation guide](https://docs.nolongerevil.com/hosted/installation):
-   connect the display to your computer by USB, hold the display down for
-   10–15 seconds to put it into DFU mode, and run their installer.
-2. When the Nest restarts, go through its on-screen setup until it's on your
-   Wi-Fi. If it asks to pair with a Heat Link you don't have, hold the display
-   down for 10 seconds to restart it; it then goes straight to Wi-Fi setup.
-3. Find its address: **Settings → Technical Info → Network** on the Nest, or
-   your router's list of devices. It helps to give it a fixed address in your
-   router (a "DHCP reservation").
-4. Check you can log in. The password is `nolongerevil`:
+Follow NLE's own instructions: the
+[installation guide](https://docs.nolongerevil.com/hosted/installation) (start
+with their [compatibility check](https://docs.nolongerevil.com/compatibility)).
+In short, you connect the display to your computer by USB, hold the display down
+for 10–15 seconds to put it into DFU mode, and run their installer.
 
-       ssh root@<nest-address>
+When it's done the Nest restarts on its own and rejoins your Wi-Fi, usually at
+the same address. Check you can log in as `root`; the password is
+`nolongerevil`:
 
-   *(to confirm: whether NLE's hosted installer enables SSH by default, or
-   whether you need their firmware builder's `--enable-root-access` option.)*
+    ssh -o PreferredAuthentications=password root@<nest-address>
 
-   Type `exit` to leave. If your SSH settings only allow keys, add
-   `-o PreferredAuthentications=password` to the command.
+The first time, SSH asks you to confirm the Nest's host key: answer `yes`. You
+should get a `#` prompt. Type `exit` to leave.
 
-## 2. Set up your computer
+*(to confirm on a fresh unit: whether NLE's hosted installer enables SSH like
+this by default, or whether you need their firmware builder's
+`--enable-root-access` option.)*
+
+## 3. Set up SSH without a password
+
+The scripts in this guide log in to the Nest with an SSH key, never a password.
+The Nest's SSH server is old: it accepts **ECDSA** or RSA keys, not ed25519, so
+make an ECDSA key just for it:
+
+    ssh-keygen -t ecdsa -b 521 -f ~/.ssh/nest_gen2 -C nest_gen2
+
+Press Enter when asked for a passphrase (or set one and use `ssh-agent`). Then
+copy the public key to the Nest, typing `nolongerevil` once more:
+
+    ssh -o PreferredAuthentications=password root@<nest-address> \
+      'mkdir -p /root/.ssh && chmod 700 /root/.ssh && cat >> /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys' \
+      < ~/.ssh/nest_gen2.pub
+
+Check it logs in without asking for a password:
+
+    ssh -i ~/.ssh/nest_gen2 root@<nest-address> uname -a
+
+You should see a line starting `Linux` and mentioning `2.6.37`. To shorten
+commands, add this to `~/.ssh/config`, after which `ssh nest` is enough:
+
+    Host nest
+      HostName <nest-address>
+      User root
+      IdentityFile ~/.ssh/nest_gen2
+      IdentitiesOnly yes
+
+The installer in step 5 turns off root password logins, so from then on only
+your key gets in. (If you skip this step, the installer does it for you and
+asks for the password once.)
+
+## 4. Set up your computer
 
 Apps for the Nest are built on your computer with **Erlang/OTP 26 and Elixir
 1.17**, the versions the Nest runs. Newer versions build code the Nest can't
@@ -74,15 +124,15 @@ Check the toolchain:
 
 You should see `OK`. Otherwise it says what it found and what to install.
 
-## 3. Install the platform on the Nest
+## 5. Install the platform on the Nest
 
     platform/install.sh <nest-address>
 
 It explains each step as it goes:
 
-1. **SSH key.** It creates `~/.ssh/nest_gen2` and asks once for the password
-   (`nolongerevil`) to install it. From then on no password is needed, and the
-   Nest stops accepting root password logins.
+1. **SSH key.** It logs in with `~/.ssh/nest_gen2` from step 3. (If that key
+   doesn't exist or isn't on the Nest yet, it creates and installs it, asking
+   once for the password `nolongerevil`.)
 2. **Checks** it's a 2nd-gen Nest with room in its flash.
 3. **Downloads the runtime**, Erlang/OTP 26 and Elixir 1.17 built for the
    Nest (about 45 MB), and checks its checksum.
@@ -111,7 +161,7 @@ same report.
 Everything lives in `/media/scratch/.nest_gen2_sdk` on the Nest. To go back to
 No Longer Evil's own software, see [Undoing it](#undoing-it).
 
-## 4. Deploy the example app: foxbus
+## 6. Deploy the example app: foxbus
 
 [foxbus](https://github.com/integration-technology/foxbus) shows live bus
 departures, the room temperature, disruption warnings and an arrival alarm. Get
@@ -130,7 +180,7 @@ shows foxbus.
 `install.sh` saved the Nest's address and key in `~/.config/nest_gen2/target`,
 which is where `deploy_app.sh` finds them.
 
-## 5. Your own app
+## 7. Your own app
 
 [`examples/hello_nest`](../examples/hello_nest) is the smallest useful app: a
 number you change with the ring, reset with a press, and the room temperature.
@@ -177,7 +227,7 @@ stays installed.
 ## Troubleshooting
 
 **`install.sh` can't log in with the password.** Check the address and that you
-can `ssh root@<nest-address>` by hand (step 1.4).
+can log in by hand as in steps 2 and 3.
 
 **The download fails or the checksum doesn't match.** Delete
 `~/.cache/nest_gen2/` and run it again.
@@ -186,7 +236,7 @@ can `ssh root@<nest-address>` by hand (step 1.4).
 the router doesn't answer, the SDK restarts Wi-Fi every 3 minutes. If it still
 isn't back, the network name or password was probably wrong. Hold the display
 down for 10 s to restart; if that doesn't help, connect it by USB, re-flash No
-Longer Evil (step 1), and run `install.sh` again.
+Longer Evil (step 2), and run `install.sh` again.
 
 **The screen stays on the boot logo.** The app isn't deployed or doesn't start.
 Run `--check`, then read the app's log.

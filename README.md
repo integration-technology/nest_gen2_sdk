@@ -1,8 +1,15 @@
 # nest_gen2
 
-Turn a rooted Nest Learning Thermostat (2nd gen) into a small Elixir device: a
-320×320 round screen, a rotating ring with a press, a piezo, motion sensors and a
-climate sensor, all driven from your own OTP application.
+Turn a Nest Learning Thermostat (2nd gen) into a small Wi-Fi-connected Elixir
+device: a 320×320 round screen, a rotating ring with a press, a piezo, motion,
+light and climate sensors, and Wi-Fi, all driven from your own OTP application,
+deployed to the Nest over Wi-Fi.
+
+The Nest first has to be rooted with [No Longer Evil](https://nolongerevil.com)
+([their install guide](https://docs.nolongerevil.com/hosted/installation)).
+[docs/install.md](https://github.com/integration-technology/nest_gen2_sdk/blob/main/docs/install.md)
+covers the whole route: Wi-Fi and rooting, SSH keys, installing the platform, the
+example app, and your own.
 
 **Status: alpha (0.1).** It runs the example app,
 [foxbus](https://github.com/integration-technology/foxbus), on a real Nest every
