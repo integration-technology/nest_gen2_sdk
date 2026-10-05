@@ -3,6 +3,13 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
+## Unreleased
+
+- The optional backplate trace (`trace_file`) is capped at 256 KB (`trace_max_bytes`), the
+  older part kept as `<file>.1`. It lives in `/tmp`, which is RAM: uncapped, it grew about
+  7 MB a day and ran the Nest out of memory overnight, which resets the board ("Global Cold
+  Reset").
+
 ## 0.2.2 (2026-10-04)
 
 - **Install guide and scripts.** [docs/install.md](docs/install.md) goes from a 2nd-gen
