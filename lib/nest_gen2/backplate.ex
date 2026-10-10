@@ -37,7 +37,8 @@ defmodule NestGen2.Backplate do
   @spec status() :: %{
           connected: boolean,
           frames_received: non_neg_integer,
-          last_frame_at: DateTime.t() | nil
+          last_frame_at: DateTime.t() | nil,
+          restarts: non_neg_integer
         }
   def status, do: GenServer.call(__MODULE__, :status)
 
@@ -72,6 +73,8 @@ defmodule NestGen2.Backplate do
        handshake: 0,
        last_handshake: nil,
        info: %{},
+       awake_once: false,
+       restarts: 0,
        motion_level: 0,
        near: false,
        far: false,
@@ -89,7 +92,12 @@ defmodule NestGen2.Backplate do
   @impl true
   def handle_call(:status, _from, s) do
     {:reply,
-     %{connected: s.port != nil, frames_received: s.frames, last_frame_at: s.last_frame_at}, s}
+     %{
+       connected: s.port != nil,
+       frames_received: s.frames,
+       last_frame_at: s.last_frame_at,
+       restarts: s.restarts
+     }, s}
   end
 
   def handle_call({:get, key}, _from, s), do: {:reply, Map.fetch!(s, key), s}
@@ -145,9 +153,10 @@ defmodule NestGen2.Backplate do
       {:tx, cmd, payload} -> tx(s, cmd, payload)
       :brk -> brk(s)
       :no_hello -> Logger.warning("backplate did not answer the wake-up BREAK")
-      :done -> Logger.info("backplate awake: #{inspect(s.info)}")
+      :done -> log_awake(s)
     end
 
+    s = if action == :done, do: %{s | awake_once: true}, else: s
     {:noreply, steps(s, rest)}
   end
 
@@ -224,19 +233,36 @@ defmodule NestGen2.Backplate do
   end
 
   # The backplate restarted (after our BREAK, or by itself): answer its hello.
+  # A loose head unit on its base, or a base power blip, restarts it now and
+  # then; each restart after the first wake-up is counted rather than logged.
   defp handle_frame({:hello, hello}, s) do
-    s = %{s | handshake: s.handshake + 1}
+    restarts = if s.awake_once, do: s.restarts + 1, else: s.restarts
+    s = %{s | handshake: s.handshake + 1, restarts: restarts}
     steps(s, Handshake.hello_steps(hello) ++ [{0, :done}])
   end
 
   defp handle_frame({:info, key, value}, s), do: %{s | info: Map.put(s.info, key, value)}
 
+  # Text the backplate prints around a restart: "BRK", its firmware banner,
+  # sensor self-test ("*sense ...") and, with no heating system wired to it,
+  # "*HVAC power lost". Anything else is new, so worth seeing.
   defp handle_frame({:message, text}, s) do
-    Logger.debug("backplate: #{text}")
+    unless restart_chatter?(text), do: Logger.debug("backplate: #{text}")
     s
   end
 
   defp handle_frame(:unknown, s), do: s
+
+  @doc false
+  def restart_chatter?(text) do
+    text == "BRK" or String.starts_with?(text, ["*sense", "*HVAC"]) or
+      Regex.match?(~r/^\d+\.\d+\.\d+ \d{4}-\d\d-\d\d/, text)
+  end
+
+  defp log_awake(%{awake_once: false} = s), do: Logger.info("backplate awake: #{inspect(s.info)}")
+
+  defp log_awake(s),
+    do: Logger.debug("backplate restarted and woken again (#{s.restarts} since start)")
 
   defp wake(s) do
     s = %{s | handshake: s.handshake + 1, last_handshake: now()}

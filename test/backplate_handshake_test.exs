@@ -32,6 +32,20 @@ defmodule NestGen2.Backplate.HandshakeTest do
     assert Decode.decode(0x001C, "BSL\0") == {:info, :bootloader, "BSL"}
   end
 
+  test "restart chatter is recognised, anything else isn't" do
+    alias NestGen2.Backplate
+
+    for text <- [
+          "BRK",
+          "1.0.26 2019-04-05 19:24:34 K",
+          "*sense 0000 0000; detect 0000 1318",
+          "*HVAC power lost"
+        ],
+        do: assert(Backplate.restart_chatter?(text), text)
+
+    refute Backplate.restart_chatter?("*something new")
+  end
+
   describe "wake?/5" do
     test "not while readings arrive" do
       refute Handshake.wake?(100_000, 99_000, 0, 15_000, 60_000)

@@ -3,8 +3,13 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
-## Unreleased
+## 0.2.3 (2026-10-10)
 
+- Backplate restarts are counted (`NestGen2.Backplate.status/0` gains `restarts`) instead of
+  logged: after the first wake-up, each restart and its chatter ("BRK", the firmware banner,
+  "*sense", and "*HVAC power lost", which a base with no heating system wired to it prints)
+  no longer reach the log. A loose head unit on its base restarts it now and then; the SDK
+  wakes it again within about 2 seconds.
 - The optional backplate trace (`trace_file`) is capped at 256 KB (`trace_max_bytes`), the
   older part kept as `<file>.1`. It lives in `/tmp`, which is RAM: uncapped, it grew about
   7 MB a day and ran the Nest out of memory overnight, which resets the board ("Global Cold
