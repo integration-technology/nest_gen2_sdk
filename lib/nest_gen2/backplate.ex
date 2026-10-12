@@ -16,7 +16,7 @@ defmodule NestGen2.Backplate do
   """
   use GenServer
   require Logger
-  alias NestGen2.Backplate.{Decode, Handshake}
+  alias NestGen2.Backplate.{Decode, Frame, Handshake}
 
   @tty "/dev/ttyO2"
   @cycle_ms 30_000
@@ -67,6 +67,7 @@ defmodule NestGen2.Backplate do
     {:ok,
      %{
        port: open(),
+       rx: <<>>,
        frames: 0,
        last_frame_at: nil,
        last_rx: nil,
@@ -128,23 +129,20 @@ defmodule NestGen2.Backplate do
     {:noreply, s}
   end
 
-  def handle_info({port, {:data, {:eol, line}}}, %{port: port} = s) do
-    NestGen2.Trace.write(line)
+  # Bytes from the serial line, in whatever chunks they arrived: cut them
+  # into frames (keeping any partial frame for next time) and handle each.
+  def handle_info({port, {:data, <<?r, bytes::binary>>}}, %{port: port} = s) do
+    {frames, rx} = Frame.parse(s.rx <> bytes)
+    {:noreply, Enum.reduce(frames, %{s | rx: rx}, &handle_rx/2)}
+  end
 
-    case Decode.parse_line(line) do
-      {:ok, cmd, payload} ->
-        Registry.dispatch(NestGen2.Registry, @raw_key, fn entries ->
-          for {pid, _} <- entries, do: send(pid, {:nest_gen2_backplate, cmd, payload})
-        end)
+  # bplink has opened the port: wake the backplate.
+  def handle_info({port, {:data, <<?o, _path::binary>>}}, %{port: port} = s),
+    do: {:noreply, wake(s)}
 
-        s = %{s | frames: s.frames + 1, last_frame_at: DateTime.utc_now(), last_rx: now()}
-        {:noreply, handle_frame(Decode.decode(cmd, payload), s)}
-
-      :ignore ->
-        if String.starts_with?(line, "err"), do: Logger.warning("bplink: #{line}")
-        # bplink has opened the port: wake the backplate.
-        if String.starts_with?(line, "ready"), do: {:noreply, wake(s)}, else: {:noreply, s}
-    end
+  def handle_info({port, {:data, <<?e, text::binary>>}}, %{port: port} = s) do
+    Logger.warning("bplink: #{text}")
+    {:noreply, s}
   end
 
   # One step of the wake handshake; steps from an earlier handshake are dropped.
@@ -185,6 +183,20 @@ defmodule NestGen2.Backplate do
 
   def handle_info(:reopen, s), do: {:noreply, %{s | port: open()}}
   def handle_info(_other, s), do: {:noreply, s}
+
+  defp handle_rx({cmd, payload}, s) do
+    NestGen2.Trace.write(["rx ", hex4(cmd), " ", Base.encode16(payload, case: :lower)])
+
+    Registry.dispatch(NestGen2.Registry, @raw_key, fn entries ->
+      for {pid, _} <- entries, do: send(pid, {:nest_gen2_backplate, cmd, payload})
+    end)
+
+    s = %{s | frames: s.frames + 1, last_frame_at: DateTime.utc_now(), last_rx: now()}
+    handle_frame(Decode.decode(cmd, payload), s)
+  end
+
+  defp hex4(cmd),
+    do: cmd |> Integer.to_string(16) |> String.downcase() |> String.pad_leading(4, "0")
 
   defp handle_frame({:motion_level, level}, s) do
     if level >= s.motion_threshold, do: publish_motion(s, level)
@@ -301,22 +313,24 @@ defmodule NestGen2.Backplate do
   defp tx(%{port: nil}, _cmd, _payload), do: :ok
 
   defp tx(%{port: port}, cmd, payload) do
-    hex = Base.encode16(payload, case: :lower)
-    NestGen2.Trace.write("tx #{Integer.to_string(cmd, 16)} #{hex}")
-    Port.command(port, "tx #{Integer.to_string(cmd, 16)} #{hex}\n")
+    NestGen2.Trace.write(
+      "tx #{Integer.to_string(cmd, 16)} #{Base.encode16(payload, case: :lower)}"
+    )
+
+    Port.command(port, [?w, Frame.encode(cmd, payload)])
   end
 
   defp brk(%{port: nil}), do: :ok
 
   defp brk(%{port: port}) do
     NestGen2.Trace.write("brk")
-    Port.command(port, "brk\n")
+    Port.command(port, <<?b>>)
   end
 
   defp open do
     Port.open({:spawn_executable, NestGen2.Config.native("bplink")}, [
       {:args, [@tty]},
-      {:line, 4096},
+      {:packet, 2},
       :binary,
       :exit_status,
       :use_stdio

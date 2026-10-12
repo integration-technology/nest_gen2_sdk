@@ -1,34 +1,32 @@
-/* Nest backplate UART link, meant to run as an Erlang/Elixir port.
+/* Nest backplate serial line, as an Erlang port: a byte pipe, nothing more.
+ * Framing, checksums and every message's meaning live in Elixir
+ * (NestGen2.Backplate.Frame and .Decode); this only does what the BEAM can't:
+ * set the tty up (raw, 115200 8N1) and send a serial BREAK.
  *
- * stdout: one line per valid frame received:   rx <cmd hex4> <payload hex>
- * stdin:  one command per line:                tx <cmd hex> [payload hex]
- *                                               brk   (flush, then a 100 ms BREAK)
+ * Both directions use {packet, 2}: a 2-byte big-endian length, then a body
+ * whose first byte says what it is.
+ *
+ *   from the BEAM:  'w' <bytes>    write the bytes to the line
+ *                   'b'            flush both ways, then a 100 ms BREAK (the
+ *                                  backplate restarts and says hello)
+ *   to the BEAM:    'r' <bytes>    bytes read from the line, as they arrive
+ *                   'o' <path>     the line is open
+ *                   'e' <text>     an error
+ *
  * Exits when stdin closes, so it never outlives its owner.
- *
- * Frame: d5 aa 96 | cmd u16le | len u16le | payload | crc16-xmodem(cmd..payload) u16le
  */
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <sys/ioctl.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <termios.h>
 #include <unistd.h>
 
-#define MAX_PAYLOAD 1024
-
-static uint16_t crc16_xmodem(const uint8_t *d, size_t n) {
-    uint16_t crc = 0;
-    while (n--) {
-        crc ^= (uint16_t)(*d++) << 8;
-        for (int i = 0; i < 8; i++)
-            crc = (crc & 0x8000) ? (uint16_t)((crc << 1) ^ 0x1021) : (uint16_t)(crc << 1);
-    }
-    return crc;
-}
+#define MAX_PACKET 4096
 
 static int open_tty(const char *path) {
     int fd = open(path, O_RDWR | O_NOCTTY);
@@ -47,116 +45,79 @@ static int open_tty(const char *path) {
     return fd;
 }
 
-static int hexval(int c) {
-    if (c >= '0' && c <= '9') return c - '0';
-    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-    return -1;
-}
-
-static int send_frame(int fd, unsigned cmd, const uint8_t *p, size_t n) {
-    uint8_t f[3 + 4 + MAX_PAYLOAD + 2];
-    f[0] = 0xd5; f[1] = 0xaa; f[2] = 0x96;
-    f[3] = cmd & 0xff; f[4] = (cmd >> 8) & 0xff;
-    f[5] = n & 0xff;   f[6] = (n >> 8) & 0xff;
-    memcpy(f + 7, p, n);
-    uint16_t crc = crc16_xmodem(f + 3, 4 + n);
-    f[7 + n] = crc & 0xff; f[8 + n] = crc >> 8;
-    size_t len = 9 + n, off = 0;
-    while (off < len) {
-        ssize_t w = write(fd, f + off, len - off);
+static int write_all(int fd, const uint8_t *p, size_t n) {
+    while (n) {
+        ssize_t w = write(fd, p, n);
         if (w < 0) { if (errno == EINTR) continue; return -1; }
-        off += (size_t)w;
+        p += w; n -= (size_t)w;
     }
     return 0;
 }
 
-static void handle_command(int fd, char *line) {
-    char *save, *verb = strtok_r(line, " \t\r\n", &save);
-    if (!verb) return;
-    if (strcmp(verb, "brk") == 0) {
-        /* What Nest's client does at start: the backplate restarts on a BREAK
-         * and then says hello (0x0004), which wakes it from its silent state. */
-        tcflush(fd, TCIOFLUSH);
-        if (ioctl(fd, TCSBRKP, 1) < 0) printf("err brk %s\n", strerror(errno));
-        return;
-    }
-    if (strcmp(verb, "tx") != 0) { printf("err unknown %s\n", verb); return; }
-    char *cmds = strtok_r(NULL, " \t\r\n", &save);
-    char *hex = strtok_r(NULL, " \t\r\n", &save);
-    if (!cmds) { printf("err missing cmd\n"); return; }
-    unsigned cmd = (unsigned)strtoul(cmds, NULL, 16);
-    uint8_t payload[MAX_PAYLOAD];
-    size_t n = 0;
-    if (hex) {
-        size_t hl = strlen(hex);
-        if (hl % 2 || hl / 2 > MAX_PAYLOAD) { printf("err bad payload\n"); return; }
-        for (size_t i = 0; i < hl; i += 2) {
-            int a = hexval(hex[i]), b = hexval(hex[i + 1]);
-            if (a < 0 || b < 0) { printf("err bad payload\n"); return; }
-            payload[n++] = (uint8_t)(a << 4 | b);
-        }
-    }
-    if (send_frame(fd, cmd, payload, n) < 0) printf("err write %s\n", strerror(errno));
+/* One packet to the BEAM: tag, then data. */
+static void send_packet(char tag, const void *data, size_t n) {
+    uint8_t hdr[3] = {(uint8_t)((n + 1) >> 8), (uint8_t)(n + 1), (uint8_t)tag};
+    if (write_all(STDOUT_FILENO, hdr, 3) == 0) write_all(STDOUT_FILENO, data, n);
 }
 
-/* Consume complete frames from buf; returns bytes kept. */
-static size_t parse_frames(uint8_t *buf, size_t len) {
-    size_t i = 0;
-    for (;;) {
-        while (i + 3 <= len && !(buf[i] == 0xd5 && buf[i + 1] == 0xaa && buf[i + 2] == 0x96)) i++;
-        if (i + 7 > len) break;
-        unsigned cmd = buf[i + 3] | buf[i + 4] << 8;
-        size_t n = buf[i + 5] | (size_t)buf[i + 6] << 8;
-        if (n > MAX_PAYLOAD) { i++; continue; }
-        if (i + 9 + n > len) break;
-        uint16_t crc = buf[i + 7 + n] | buf[i + 8 + n] << 8;
-        if (crc != crc16_xmodem(buf + i + 3, 4 + n)) { i++; continue; }
-        printf("rx %04x ", cmd);
-        for (size_t k = 0; k < n; k++) printf("%02x", buf[i + 7 + k]);
-        printf("\n");
-        i += 9 + n;
+static void send_error(const char *fmt, ...) {
+    char msg[256];
+    va_list ap;
+    va_start(ap, fmt);
+    int n = vsnprintf(msg, sizeof msg, fmt, ap);
+    va_end(ap);
+    if (n < 0) n = 0;
+    if ((size_t)n >= sizeof msg) n = sizeof msg - 1;
+    send_packet('e', msg, (size_t)n);
+}
+
+static void handle_packet(int fd, const uint8_t *p, size_t n) {
+    if (n == 0) return;
+    switch (p[0]) {
+    case 'w':
+        if (write_all(fd, p + 1, n - 1) < 0) send_error("write %s", strerror(errno));
+        break;
+    case 'b':
+        /* What Nest's own client does at start: the backplate restarts on a
+         * BREAK and then says hello (0x0004). */
+        tcflush(fd, TCIOFLUSH);
+        if (ioctl(fd, TCSBRKP, 1) < 0) send_error("brk %s", strerror(errno));
+        break;
+    default:
+        send_error("unknown packet %c", p[0]);
     }
-    memmove(buf, buf + i, len - i);
-    return len - i;
 }
 
 int main(int argc, char **argv) {
     const char *path = argc > 1 ? argv[1] : "/dev/ttyO2";
-    setvbuf(stdout, NULL, _IOLBF, 0);
     int fd = open_tty(path);
-    if (fd < 0) { printf("err open %s %s\n", path, strerror(errno)); return 1; }
-    printf("ready %s\n", path);
+    if (fd < 0) { send_error("open %s %s", path, strerror(errno)); return 1; }
+    send_packet('o', path, strlen(path));
 
-    uint8_t rbuf[4 * (MAX_PAYLOAD + 16)];
-    size_t rlen = 0;
-    char lbuf[3 * MAX_PAYLOAD + 64];
-    size_t llen = 0;
+    uint8_t in[2 + MAX_PACKET];
+    size_t have = 0;
+    uint8_t rbuf[1024];
     struct pollfd pfd[2] = {{fd, POLLIN, 0}, {STDIN_FILENO, POLLIN, 0}};
 
     for (;;) {
         if (poll(pfd, 2, -1) < 0) { if (errno == EINTR) continue; return 1; }
         if (pfd[0].revents & POLLIN) {
-            ssize_t r = read(fd, rbuf + rlen, sizeof(rbuf) - rlen);
-            if (r > 0) {
-                rlen += (size_t)r;
-                rlen = parse_frames(rbuf, rlen);
-                if (rlen == sizeof(rbuf)) rlen = 0;
-            }
+            ssize_t r = read(fd, rbuf, sizeof rbuf);
+            if (r > 0) send_packet('r', rbuf, (size_t)r);
         }
         if (pfd[1].revents & (POLLIN | POLLHUP)) {
-            ssize_t r = read(STDIN_FILENO, lbuf + llen, sizeof(lbuf) - 1 - llen);
+            ssize_t r = read(STDIN_FILENO, in + have, sizeof in - have);
             if (r <= 0) return 0;
-            llen += (size_t)r;
-            char *nl;
-            while ((nl = memchr(lbuf, '\n', llen))) {
-                *nl = 0;
-                handle_command(fd, lbuf);
-                size_t used = (size_t)(nl - lbuf) + 1;
-                memmove(lbuf, lbuf + used, llen - used);
-                llen -= used;
+            have += (size_t)r;
+            for (;;) {
+                if (have < 2) break;
+                size_t len = (size_t)in[0] << 8 | in[1];
+                if (len > MAX_PACKET) { send_error("packet too long"); return 1; }
+                if (have < 2 + len) break;
+                handle_packet(fd, in + 2, len);
+                memmove(in, in + 2 + len, have - 2 - len);
+                have -= 2 + len;
             }
-            if (llen == sizeof(lbuf) - 1) llen = 0;
         }
     }
 }

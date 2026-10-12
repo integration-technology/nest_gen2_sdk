@@ -45,14 +45,4 @@ defmodule NestGen2.Backplate.Decode do
   def decode(_cmd, _payload), do: :unknown
 
   defp printable(bin), do: bin |> String.trim_trailing(<<0>>) |> String.replace_invalid("?")
-
-  @doc "Parses a bplink `rx` line: \"rx 000b 01ce0f...\"."
-  def parse_line("rx " <> rest) do
-    case String.split(rest, " ", parts: 2) do
-      [cmd, hex] -> {:ok, String.to_integer(cmd, 16), Base.decode16!(hex, case: :lower)}
-      [cmd] -> {:ok, String.to_integer(cmd, 16), <<>>}
-    end
-  end
-
-  def parse_line(_), do: :ignore
 end

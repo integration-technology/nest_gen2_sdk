@@ -3,6 +3,15 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
+## 0.2.5 (2026-10-12)
+
+- Backplate framing moves from C to Elixir. `bplink` is now a byte pipe (it sets the serial
+  line up and sends the BREAK, nothing else) speaking `{packet, 2}`, and
+  `NestGen2.Backplate.Frame` finds, checks and builds frames with binary pattern matching:
+  partial frames are kept for the next chunk, noise and bad checksums are skipped. Checked
+  against traffic captured from Nest's own firmware: the same frames found, and the head's
+  frames re-encoded byte for byte. No API change; the trace keeps its format.
+
 ## 0.2.4 (2026-10-12)
 
 - **Fix: the screen went dark after 10 minutes and only a press brought it back,** even

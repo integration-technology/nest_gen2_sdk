@@ -30,10 +30,4 @@ defmodule NestGen2.Backplate.DecodeTest do
 
     assert Decode.decode(0x000B, payload) == {:battery, 3896}
   end
-
-  test "parses bplink lines" do
-    assert Decode.parse_line("rx 0002 980aab01") == {:ok, 2, <<0x98, 0x0A, 0xAB, 0x01>>}
-    assert Decode.parse_line("rx 0083") == {:ok, 0x83, <<>>}
-    assert Decode.parse_line("ready /dev/ttyO2") == :ignore
-  end
 end
