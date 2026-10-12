@@ -3,6 +3,14 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
+## 0.2.4 (2026-10-12)
+
+- **Fix: the screen went dark after 10 minutes and only a press brought it back,** even
+  with an idle timeout of `:infinity`. That was the Linux console, not the SDK: it blanks
+  the framebuffer after 10 minutes without keyboard input, and on the Nest only the button
+  counts as a keyboard (not the dial or the motion sensor). `NestGen2.Display` now turns
+  console blanking off at start, and un-blanks the screen whenever `NestGen2.Power` wakes it.
+
 ## 0.2.3 (2026-10-10)
 
 - Backplate restarts are counted (`NestGen2.Backplate.status/0` gains `restarts`) instead of

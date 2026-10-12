@@ -78,6 +78,9 @@ defmodule NestGen2.Display do
   def init(nil) do
     # Our boots leave the virtual screen at 320x320; two pages need 320x640.
     File.write!(Path.join(@sysfs, "virtual_size"), "320,640")
+    # Otherwise the kernel console blanks the screen after 10 minutes without a
+    # button press, whatever NestGen2.Power decides.
+    NestGen2.Console.never_blank()
     {:ok, fb} = :file.open(@fb, [:read, :write, :raw, :binary])
     visible = visible_page()
     # Start from what is on screen (e.g. the boot splash) so nothing flashes.
@@ -109,8 +112,12 @@ defmodule NestGen2.Display do
   def handle_call(:present, _from, state), do: {:reply, :ok, present(state)}
 
   @impl true
-  def handle_info({:nest_gen2, :power, power}, state),
-    do: {:noreply, %{state | awake: power == :awake}}
+  def handle_info({:nest_gen2, :power, power}, state) do
+    # Belt and braces: if anything has turned console blanking back on, waking
+    # the screen must still show it.
+    if power == :awake, do: NestGen2.Console.unblank()
+    {:noreply, %{state | awake: power == :awake}}
+  end
 
   # Periodic full redraw while awake, as insurance against lost screen content.
   def handle_info(:refresh, state) do
