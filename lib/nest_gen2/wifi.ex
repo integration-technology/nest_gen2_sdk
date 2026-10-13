@@ -68,6 +68,18 @@ defmodule NestGen2.Wifi do
   def connect(ssid, password \\ nil) when is_binary(ssid),
     do: GenServer.call(__MODULE__, {:connect, ssid, password}, @connect_call_ms)
 
+  @doc """
+  Saves a network without switching to it: the Nest joins it by itself
+  whenever it's in range and no saved network it prefers is (for example a
+  phone hotspot, set up before taking the Nest somewhere new). A saved network
+  with the same SSID is replaced. `password` nil saves an open network. Like
+  `connect/2`, only the derived WPA key is stored, never the password.
+  """
+  @spec save(String.t(), String.t() | nil) ::
+          :ok | {:error, :bad_password_length | :unavailable | term}
+  def save(ssid, password \\ nil) when is_binary(ssid),
+    do: GenServer.call(__MODULE__, {:save, ssid, password})
+
   @doc "SSIDs of the saved networks."
   @spec saved_networks() :: [String.t()]
   def saved_networks, do: GenServer.call(__MODULE__, :saved_networks)
@@ -113,6 +125,32 @@ defmodule NestGen2.Wifi do
 
   def handle_call(:saved_networks, _from, s) do
     {:reply, networks(s) |> Enum.map(& &1.ssid) |> Enum.uniq(), s}
+  end
+
+  def handle_call({:save, ssid, password}, _from, s) do
+    setup =
+      if password,
+        do: with({:ok, key} <- Protocol.psk(password, ssid), do: {:ok, {:psk, key}}),
+        else: {:ok, :open}
+
+    old = for %{id: id, ssid: ^ssid} <- networks(s), do: id
+
+    result =
+      with {:ok, setup} <- setup,
+           {:ok, id} <- add_network(s),
+           :ok <- set(s, id, "ssid", Protocol.ssid_hex(ssid)),
+           :ok <- set_key(s, id, setup),
+           {:ok, "OK" <> _} <- request(s, "ENABLE_NETWORK #{id}") do
+        Enum.each(old, &request(s, "REMOVE_NETWORK #{&1}"))
+        _ = request(s, "SAVE_CONFIG")
+        Logger.info("nest_gen2: saved Wi-Fi #{inspect(ssid)}")
+        :ok
+      else
+        {:error, _} = error -> error
+        other -> {:error, other}
+      end
+
+    {:reply, result, s}
   end
 
   def handle_call({:forget, ssid}, _from, s) do

@@ -151,7 +151,7 @@ defmodule NestGen2.WifiTest do
     defp command("REMOVE_NETWORK " <> id, _a, _p, s),
       do: {"OK\n", %{s | networks: Map.delete(s.networks, id)}}
 
-    defp command("ENABLE_NETWORK all", _a, _p, s), do: {"OK\n", s}
+    defp command("ENABLE_NETWORK " <> _, _a, _p, s), do: {"OK\n", s}
     defp command("SAVE_CONFIG", _a, _p, s), do: {"OK\n", s}
     defp command(_other, _a, _p, s), do: {"UNKNOWN COMMAND\n", s}
   end
@@ -273,6 +273,29 @@ defmodule NestGen2.WifiTest do
     start(dir)
     assert Wifi.connect("Phone") == {:error, :password_required}
     assert Wifi.connect("Phone", "short") == {:error, :bad_password_length}
+  end
+
+  test "save adds a network without switching to it", %{dir: dir} do
+    start(dir)
+    assert Wifi.save("Phone", "correct horse") == :ok
+    assert "SAVE_CONFIG" in FakeWpa.calls()
+    refute Enum.any?(FakeWpa.calls(), &String.starts_with?(&1, "SELECT_NETWORK"))
+    refute Enum.any?(FakeWpa.calls(), &String.contains?(&1, "correct horse"))
+    assert Enum.sort(Wifi.saved_networks()) == ["HomeNet", "Phone"]
+    assert Wifi.status().ssid == "HomeNet"
+  end
+
+  test "save replaces a network with the same name", %{dir: dir} do
+    start(dir)
+    :ok = Wifi.save("Phone", "correct horse")
+    :ok = Wifi.save("Phone", "battery staple")
+    assert Wifi.saved_networks() |> Enum.count(&(&1 == "Phone")) == 1
+  end
+
+  test "save checks the password", %{dir: dir} do
+    start(dir)
+    assert Wifi.save("Phone", "short") == {:error, :bad_password_length}
+    assert Wifi.saved_networks() == ["HomeNet"]
   end
 
   test "forget", %{dir: dir} do

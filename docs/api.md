@@ -176,6 +176,7 @@ NestGen2.Wifi.scan() :: {:ok, [%{ssid, signal_dbm, secured, saved}]} | {:error, 
 NestGen2.Wifi.connect(ssid, password | nil) :: {:ok, %{ssid, ip}}
     | {:error, :wrong_password | :not_found | :no_ip | :timeout | :password_required
               | :bad_password_length | :busy | :unavailable | term}                   # up to ~1 min
+NestGen2.Wifi.save(ssid, password | nil) :: :ok | {:error, :bad_password_length | :unavailable | term}
 NestGen2.Wifi.saved_networks() :: [String.t()]
 NestGen2.Wifi.forget(ssid) :: :ok | {:error, :not_found | :connected | :unavailable}
 # event: {:nest_gen2, :wifi, %{state, ssid, ip}} on any change
@@ -184,8 +185,37 @@ NestGen2.Wifi.forget(ssid) :: :ok | {:error, :not_found | :connected | :unavaila
 `connect/2` only saves a network once it has an address; on any failure it
 goes back to the previous network and leaves the saved configuration alone.
 Passwords are stored as the derived WPA key. Call it from a Task, as it blocks.
+`save/2` stores a network without switching to it (replacing one with the same
+SSID), for setting up somewhere the Nest will go later, such as a phone hotspot;
+the Nest joins it by itself when it's in range.
 The platform's `wifi.sh guard` also restarts `wpa_supplicant` from the saved
 configuration if the gateway is unreachable for 3 minutes.
+
+## Storage
+
+`NestGen2.Storage` keeps an app's settings in flash, safe against the power going
+mid-write, so an app can save its configuration and read it back at start-up.
+
+```elixir
+NestGen2.Storage.put(key, value) :: :ok | {:error, :not_storable | posix}
+NestGen2.Storage.get(key, default \\ nil) :: value | default
+NestGen2.Storage.delete(key) :: :ok
+NestGen2.Storage.keys() :: [String.t()]
+NestGen2.Storage.dir() :: path        # the app's own folder, for anything else
+# every function takes app: :name when not called from inside the app
+```
+
+- Each app has its own folder, `/media/scratch/.nest_gen2_sdk/data/<app>`; each key
+  is one file there with the value as readable text and a checksum.
+- Writes go to a temporary file, flushed, then renamed into place, keeping the
+  previous value as a backup. A damaged value falls back to the backup, then to
+  the default; `get/2` never raises.
+- Keys: lowercase letters, digits and `_`. Values: anything that can be written as
+  text and read back (maps, lists, tuples, strings, numbers, atoms; not pids or
+  functions).
+- For settings that change now and then, not for data written every second: the
+  flash is slow and wears.
+- From your computer: `platform/storage.sh <app> list | get <key> | put <key> '<term>' | delete <key>`.
 
 ## Version
 

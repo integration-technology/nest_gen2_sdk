@@ -20,7 +20,7 @@ docs. Expect API changes between 0.x minor versions (see Versioning).
 
 ```elixir
 def deps do
-  [{:nest_gen2, "~> 0.2.2"}]
+  [{:nest_gen2, "~> 0.3.0"}]
 end
 ```
 

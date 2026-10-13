@@ -211,6 +211,7 @@ All of these run on your computer, from the SDK folder.
 | Update the app | `platform/deploy_app.sh ../foxbus` |
 | Read the app's log | `ssh -i ~/.ssh/nest_gen2 root@<nest-address> tail -50 /media/scratch/.nest_gen2_sdk/foxbus.log` |
 | The log from before the last restart | the same with `foxbus.log.1` |
+| Read or change an app's saved settings | `platform/storage.sh foxbus list`, then `get <key>` or `put <key> '<value>'` |
 | Save another Wi-Fi network | `ssh -t -i ~/.ssh/nest_gen2 root@<nest-address> sh /media/scratch/.nest_gen2_sdk/wifi.sh add "Network name"` |
 | Move to a newer SDK | update the app's dependency, then `platform/deploy_app.sh ../foxbus --sdk` |
 | Restart the Nest | hold the display down for 10 seconds |
@@ -277,6 +278,7 @@ So you can check its work, or do it by hand:
 - adds `/media/scratch/.nest_gen2_sdk/` with `otp/`, `elixir/`, `udhcpc`,
   `entropyd`, `wifi.sh`, `udhcpc.script`, `app_watchdog.sh`, `RUNTIME`, and
   `wpa_supplicant.conf` (your Wi-Fi network as a WPA key, not the password);
+  apps keep their settings in `data/<app>/` there (`NestGen2.Storage`);
 - appends your public key to `/root/.ssh/authorized_keys`;
 - copies `/etc/init.d/rcS` to `/etc/init.d/rcS.stock`, then in `rcS`: comments
   out `nlmetrics`, `heartbeat`, `nlsleep`, `nlshutdown`, `nestlabs` and `monit`;

@@ -3,6 +3,16 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
+## 0.3.0 (2026-10-13)
+
+- `NestGen2.Storage`: per-app settings in flash (`put/3`, `get/3`, `delete/2`, `keys/1`,
+  `dir/1`), written so a power cut mid-write can't corrupt them (temporary file, flush,
+  rename, previous value kept as a fallback), stored as readable text with a checksum.
+- `platform/storage.sh`: list, read, write and delete an app's stored values from your
+  computer.
+- `NestGen2.Wifi.save/2`: save a network without switching to it, e.g. a phone hotspot
+  before taking the Nest somewhere new.
+
 ## 0.2.5 (2026-10-12)
 
 - Backplate framing moves from C to Elixir. `bplink` is now a byte pipe (it sets the serial
