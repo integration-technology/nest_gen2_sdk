@@ -243,9 +243,19 @@ Longer Evil (step 2), and run `install.sh` again.
 **The screen stays on the boot logo.** The app isn't deployed or doesn't start.
 Run `--check`, then read the app's log.
 
-**The green light above the screen flashes and nothing reacts to motion.** The
-base has gone quiet, usually after losing power. The SDK wakes it within about
-a minute; if it doesn't, restart the Nest.
+**The light above the screen flashes.** It's the base's status light, not the SDK's:
+
+- *Blinking green*: the Nest is starting, restarting or updating. If it goes on for more
+  than about 5 minutes and nothing reacts to motion, the base has probably gone quiet after
+  losing power; the SDK wakes it within about a minute, and otherwise restart the Nest.
+- *Blinking red*: the display's battery is too low to start, and it's charging. Leave it on
+  its base; it starts by itself once there's enough charge (this can take an hour or more).
+  Holding the display down does nothing until then.
+
+**The Nest ran flat.** The base powers the display and charges its battery. If the display
+sits loosely on the base or stand, or the stand's USB supply is weak, the battery can drain
+while it's "plugged in". Seat it firmly, use a decent 5 V supply, and set the screen to
+sleep (foxbus: press on the home screen, then *Screen*) rather than *Always on*.
 
 **The screen doesn't wake when you walk up to it.** The motion sensor is better
 at movement across the room than straight towards it. Pressing the display
