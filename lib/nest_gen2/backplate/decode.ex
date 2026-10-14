@@ -42,6 +42,10 @@ defmodule NestGen2.Backplate.Decode do
   def decode(0x001E, text), do: {:info, :model, printable(text)}
   def decode(0x001F, text), do: {:info, :serial, printable(text)}
 
+  # First thing after the head wakes and sends 0x83: why the base woke it
+  # (0x0080 seen when someone moved past it; 0 when the head woke itself).
+  def decode(0x0014, <<flags::16-little, _::binary>>), do: {:wake_reason, flags}
+
   def decode(_cmd, _payload), do: :unknown
 
   defp printable(bin), do: bin |> String.trim_trailing(<<0>>) |> String.replace_invalid("?")

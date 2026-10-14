@@ -54,6 +54,21 @@ defmodule NestGen2.Backplate do
   def send_raw(cmd, payload \\ <<>>), do: GenServer.cast(__MODULE__, {:send, cmd, payload})
 
   @doc false
+  # Tells the base the head is about to suspend for `seconds`, as Nest's
+  # client does; the base then stays quiet until then or until it has
+  # something to wake the head for. Call resumed/0 straight after the wake-up.
+  def sleep_notice(seconds), do: call_if_running({:sleep_notice, seconds})
+
+  @doc false
+  # After a suspend: the exchange Nest's client opens with on waking (83, a2,
+  # a3), after which the base sends what it kept and resumes its readings.
+  def resumed, do: call_if_running(:resumed)
+
+  defp call_if_running(msg) do
+    if Process.whereis(__MODULE__), do: GenServer.call(__MODULE__, msg), else: :ok
+  end
+
+  @doc false
   def get(key), do: GenServer.call(__MODULE__, {:get, key})
 
   @doc false
@@ -103,6 +118,24 @@ defmodule NestGen2.Backplate do
 
   def handle_call({:get, key}, _from, s), do: {:reply, Map.fetch!(s, key), s}
   def handle_call({:put, key, value}, _from, s), do: {:reply, :ok, Map.put(s, key, value)}
+
+  def handle_call({:sleep_notice, seconds}, _from, s) do
+    # The room temperature as the base last gave it, uncorrected, as Nest's
+    # client sends it; 22.71 degC (Nest's value) until a reading has arrived.
+    centi = if s.raw_temperature_c, do: round(s.raw_temperature_c * 100), else: 2271
+    seconds = seconds |> max(1) |> min(0xFFFF)
+
+    for {cmd, payload} <- Handshake.sleep_burst(centi, seconds), do: tx(s, cmd, payload)
+    {:reply, :ok, s}
+  end
+
+  def handle_call(:resumed, _from, s) do
+    tx(s, 0x83)
+    Process.send_after(self(), :a2, 200)
+    # Readings from before the sleep mustn't look like a sudden change in
+    # light, and the quiet spell mustn't look like a silent base.
+    {:reply, :ok, %{s | last_rx: now(), light_window: []}}
+  end
 
   @impl true
   def handle_cast({:send, cmd, payload}, s) do
@@ -254,6 +287,11 @@ defmodule NestGen2.Backplate do
   end
 
   defp handle_frame({:info, key, value}, s), do: %{s | info: Map.put(s.info, key, value)}
+
+  defp handle_frame({:wake_reason, flags}, s) do
+    NestGen2.Trace.write("base wake reason #{Integer.to_string(flags, 16)}")
+    s
+  end
 
   # Text the backplate prints around a restart: "BRK", its firmware banner,
   # sensor self-test ("*sense ...") and, with no heating system wired to it,

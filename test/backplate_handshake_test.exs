@@ -46,6 +46,18 @@ defmodule NestGen2.Backplate.HandshakeTest do
     refute Backplate.restart_chatter?("*something new")
   end
 
+  test "the sleep notice carries the temperature and the seconds, as Nest's does" do
+    burst = Handshake.sleep_burst(2271, 0x0121)
+    assert Enum.map(burst, &elem(&1, 0)) == [0xC2, 0xB5, 0xB3, 0xB9, 0xBA, 0xA4, 0xA1]
+    # Byte for byte what Nest's client sent before its 277 s sleep.
+    assert {0xB9, <<0x00, 0x00, 0xDF, 0x08>>} in burst
+    assert {0xA1, <<0x21, 0x01>>} in burst
+  end
+
+  test "decodes the base's wake reason" do
+    assert Decode.decode(0x0014, <<0x80, 0x00>>) == {:wake_reason, 0x80}
+  end
+
   describe "wake?/5" do
     test "not while readings arrive" do
       refute Handshake.wake?(100_000, 99_000, 0, 15_000, 60_000)

@@ -16,6 +16,22 @@ defmodule NestGen2.Power do
   idle timeout then. A hold is released automatically if the process that took
   it exits, so a crash can't leave the screen on for good. `sleep/0` still turns
   the screen off when asked, holds or not.
+
+  ## Deep sleep
+
+  With `deep_sleep` on (config, or `set_deep_sleep/1`), once the screen has been
+  asleep for `deep_sleep_after_ms` (10 s) with no holds, the whole system
+  suspends to RAM, as Nest's own software does: the processor, radios and every
+  process stop, and carry on exactly where they were when it wakes. That's what
+  lets the battery charge on the base, which supplies only about 120 mA; awake
+  all the time, the Nest drains its battery even on the base.
+
+  It wakes on the button, on the base (which wakes it for motion), or after
+  `deep_sleep_max_s` (270 s) to keep in touch with the base. A wake-up that
+  doesn't wake the screen goes back to sleep after `deep_sleep_awake_ms` (8 s).
+  While suspended nothing runs: timers pause (they count awake time only), Wi-Fi
+  drops and reconnects within a few seconds of waking. Apps that show changing
+  data should refresh it on `{:nest_gen2, :power, :awake}`.
   """
   use GenServer
   alias NestGen2.Backlight
@@ -59,6 +75,10 @@ defmodule NestGen2.Power do
   @spec set_wake_sources([:dial | :button | :motion | :light]) :: :ok
   def set_wake_sources(sources), do: GenServer.call(__MODULE__, {:sources, sources})
 
+  @doc "Turns deep sleep (suspend to RAM while the screen is asleep) on or off."
+  @spec set_deep_sleep(boolean) :: :ok
+  def set_deep_sleep(on?) when is_boolean(on?), do: GenServer.call(__MODULE__, {:deep_sleep, on?})
+
   @impl true
   def init(nil) do
     sources = NestGen2.Config.get(:wake_sources)
@@ -72,7 +92,9 @@ defmodule NestGen2.Power do
        timeout: NestGen2.Config.get(:idle_timeout_ms),
        sources: sources,
        changed_at: now(),
-       holds: %{}
+       holds: %{},
+       deep_sleep: NestGen2.Config.get(:deep_sleep),
+       deep_timer: nil
      }}
   end
 
@@ -95,6 +117,12 @@ defmodule NestGen2.Power do
 
   def handle_call(:holds, _from, s) do
     {:reply, for({ref, h} <- s.holds, do: Map.put(h, :ref, ref)), s}
+  end
+
+  def handle_call({:deep_sleep, on?}, _from, s) do
+    s = %{cancel_deep(s) | deep_sleep: on?}
+    s = if on? and not s.awake, do: schedule_deep(s, config(:deep_sleep_after_ms)), else: s
+    {:reply, :ok, s}
   end
 
   def handle_call({:sources, sources}, _from, s) do
@@ -124,6 +152,25 @@ defmodule NestGen2.Power do
       else: {:noreply, s}
   end
 
+  def handle_info(:deep_sleep, %{deep_sleep: true, awake: false, holds: holds} = s)
+      when map_size(holds) == 0 do
+    seconds = config(:deep_sleep_max_s)
+    NestGen2.Trace.write("deep sleep, up to #{seconds} s")
+    NestGen2.Backplate.sleep_notice(seconds)
+
+    case NestGen2.Suspend.sleep(seconds) do
+      {:ok, slept} -> NestGen2.Trace.write("woke after #{slept} s")
+      {:error, reason} -> NestGen2.Trace.write("suspend refused: #{inspect(reason)}")
+    end
+
+    NestGen2.Backplate.resumed()
+    # Whatever woke us (button, motion) is in the mailbox and, if it's a wake
+    # source, wakes the screen and cancels this; otherwise sleep again soon.
+    {:noreply, schedule_deep(%{s | deep_timer: nil}, config(:deep_sleep_awake_ms))}
+  end
+
+  def handle_info(:deep_sleep, s), do: {:noreply, %{s | deep_timer: nil}}
+
   defp handle_activity(source, s) do
     unless s.awake, do: NestGen2.Trace.write("wake by #{inspect(source)}")
     {:noreply, activity(s)}
@@ -152,6 +199,7 @@ defmodule NestGen2.Power do
   defp activity(%{awake: true} = s), do: %{s | last_activity: now()}
 
   defp activity(s) do
+    s = cancel_deep(s)
     Backlight.on()
     NestGen2.publish(:power, :awake)
     %{s | awake: true, last_activity: now(), changed_at: now()}
@@ -163,8 +211,23 @@ defmodule NestGen2.Power do
     NestGen2.Trace.write("sleep")
     Backlight.off()
     NestGen2.publish(:power, :asleep)
-    %{s | awake: false, changed_at: now()}
+    s = %{s | awake: false, changed_at: now()}
+    if s.deep_sleep, do: schedule_deep(s, config(:deep_sleep_after_ms)), else: s
   end
+
+  defp schedule_deep(s, ms) do
+    s = cancel_deep(s)
+    %{s | deep_timer: Process.send_after(self(), :deep_sleep, ms)}
+  end
+
+  defp cancel_deep(%{deep_timer: nil} = s), do: s
+
+  defp cancel_deep(s) do
+    Process.cancel_timer(s.deep_timer)
+    %{s | deep_timer: nil}
+  end
+
+  defp config(key), do: NestGen2.Config.get(key)
 
   defp now, do: System.monotonic_time(:millisecond)
 end

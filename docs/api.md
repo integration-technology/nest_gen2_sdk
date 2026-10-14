@@ -137,11 +137,35 @@ release(hold) :: :ok                     # also automatic if the holder exits
 holds() :: [%{ref, reason, owner}]
 set_idle_timeout(ms | :infinity) :: :ok  # default 30_000
 set_wake_sources([:dial | :button | :motion | :light]) :: :ok   # default all four
+set_deep_sleep(boolean) :: :ok           # default off (config deep_sleep)
 ```
 
 Holds stack: idle sleep resumes once the last one is released, with a fresh
 idle timeout. Use them for anything that must stay visible, such as an alarm
 or a settings screen.
+
+**Deep sleep.** On a stand or base, the Nest gets about 120 mA, less than it
+uses awake, so an app that never lets it sleep drains the battery even while
+"plugged in". With deep sleep on, 10 s after the screen goes dark (and with no
+holds) the whole system suspends to RAM, as Nest's own software does: the BEAM
+and every process stop and later carry on exactly where they were. The base
+wakes it for motion (so the screen still lights on approach), the button wakes
+it, and it wakes by itself at least every 270 s to keep in touch with the base;
+a wake that doesn't light the screen goes back to sleep after 8 s. Measured on
+a stand: the battery rose about 290 mV/h with deep sleep, and fell about
+70 mV/h without.
+
+While suspended nothing runs and timers count only awake time, so refresh
+anything time-sensitive on `{:nest_gen2, :power, :awake}`; Wi-Fi reconnects
+within a few seconds of waking. A screen kept on (`:infinity` idle timeout or a
+hold) never deep-sleeps.
+
+| Config | Default | |
+|---|---|---|
+| `deep_sleep` | `false` | turn it on (or `set_deep_sleep(true)`) |
+| `deep_sleep_after_ms` | 10_000 | after the screen sleeps |
+| `deep_sleep_max_s` | 270 | longest sleep before waking to talk to the base |
+| `deep_sleep_awake_ms` | 8_000 | awake time after a wake that doesn't light the screen |
 
 ## Backplate
 

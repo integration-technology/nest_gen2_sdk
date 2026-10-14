@@ -3,6 +3,17 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
+## 0.5.0 (2026-10-14)
+
+- **Deep sleep** (`deep_sleep` config / `NestGen2.Power.set_deep_sleep/1`, off by default):
+  10 s after the screen goes dark the whole system suspends to RAM, as Nest's own software
+  does, and wakes on the button, on the base (motion), or after at most 270 s. It tells the
+  base first (the sleep notice Nest's client sends, with the planned seconds) and repeats
+  Nest's wake-up exchange afterwards. Without it the Nest drains its battery even on its
+  stand, which supplies only about 120 mA; with it, the battery charges (measured +290 mV/h
+  against -70 mV/h).
+- The base's wake reason (0x0014) is decoded and traced.
+
 ## 0.4.0 (2026-10-14)
 
 - `NestGen2.Gesture` and the `:gesture` topic: `:click`, `:double_click` and `:long_press` from

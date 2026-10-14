@@ -31,6 +31,25 @@ defmodule NestGen2.Backplate.Handshake do
       [{300, {:tx, 0xC0, <<0::32>>}}]
   end
 
+  @doc """
+  What Nest's client sends just before it suspends (capture of 2026-10-13):
+  the base then stays quiet, keeping its readings, for `seconds` (a1) unless
+  something (motion) makes it wake the head early. b9 carries the room
+  temperature in hundredths of a degree; c2, b5, b3, ba and a4 are Nest's own
+  values, sent as they were.
+  """
+  def sleep_burst(centi_c, seconds) do
+    [
+      {0xC2, <<0x00, 0x00, 0x70, 0x06, 0x00, 0x80>>},
+      {0xB5, <<0x0F, 0x00>>},
+      {0xB3, <<0xFF, 0xFF, 0xFF, 0xFF>>},
+      {0xB9, <<0::16, centi_c::16-little>>},
+      {0xBA, <<0::48>>},
+      {0xA4, <<0xE7, 0x07>>},
+      {0xA1, <<seconds::16-little>>}
+    ]
+  end
+
   @doc "How long to wait for the hello after the BREAK."
   def hello_timeout_ms, do: 3_000
 
