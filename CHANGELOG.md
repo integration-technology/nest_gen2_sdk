@@ -3,6 +3,12 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
+## Unreleased
+
+- `docs/backplate.md`: the backplate's hardware and serial protocol (frames, start-up,
+  keep-alive, the sleep protocol and every known message), from our captures and the
+  cuckoo-nest project's research, with each fact's source and credits.
+
 ## 0.5.0 (2026-10-14)
 
 - **Deep sleep** (`deep_sleep` config / `NestGen2.Power.set_deep_sleep/1`, off by default):

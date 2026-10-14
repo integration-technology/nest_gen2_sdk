@@ -29,6 +29,10 @@ Nest thermostat to the example app running on it, then to your own app
 (starting from [`examples/hello_nest`](examples/hello_nest)). `platform/install.sh`
 does the device side; [`platform/README.md`](platform/README.md) explains it.
 
+**How the hardware talks:** [docs/backplate.md](docs/backplate.md) describes the backplate
+(the base) and its serial protocol, from our own captures and the
+[cuckoo-nest](https://github.com/cuckoo-nest) project's research, with credits.
+
 ## Example app: foxbus
 
 [foxbus](https://github.com/integration-technology/foxbus) is a complete

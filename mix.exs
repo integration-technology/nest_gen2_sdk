@@ -45,7 +45,7 @@ defmodule NestGen2.MixProject do
         "Example app (foxbus)" => "https://github.com/integration-technology/foxbus"
       },
       files:
-        ~w(lib priv c_src/*.c c_src/Makefile c_src/vendor platform docs/api.md docs/install.md
+        ~w(lib priv c_src/*.c c_src/Makefile c_src/vendor platform docs/api.md docs/install.md docs/backplate.md
            examples/hello_nest/lib examples/hello_nest/mix.exs examples/hello_nest/README.md
            mix.exs README.md CHANGELOG.md LICENSE)
     ]

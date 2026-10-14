@@ -11,6 +11,8 @@ defmodule NestGen2.Backplate do
   `:motion`, `:climate` and `:battery` events and are available through
   `NestGen2.Motion`, `NestGen2.Climate` and `NestGen2.Battery`.
 
+  The protocol is described in `docs/backplate.md`.
+
   `status/0`, `subscribe_raw/0` and `send_raw/2` are for decoding messages the SDK
   does not cover yet, and may change between minor versions.
   """
