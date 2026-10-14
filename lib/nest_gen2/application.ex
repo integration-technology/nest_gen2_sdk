@@ -16,6 +16,7 @@ defmodule NestGen2.Application do
       NestGen2.Display,
       NestGen2.Backplate,
       NestGen2.Dial,
+      NestGen2.Gesture,
       NestGen2.Power
     ]
 

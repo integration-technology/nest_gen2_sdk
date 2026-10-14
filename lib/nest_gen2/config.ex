@@ -11,6 +11,8 @@ defmodule NestGen2.Config do
     dial_counts_per_turn: 7800,
     dial_step_degrees: 10,
     click_on_step: true,
+    button_double_click_ms: 300,
+    button_long_press_ms: 800,
     temperature_offset_c: -3.7,
     backlight_level: 113,
     fade_rise_ms: 260,

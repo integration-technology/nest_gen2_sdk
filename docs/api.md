@@ -105,6 +105,19 @@ set_counts_per_turn(counts) :: :ok       # calibration, default 7800 (ADBS-A350 
 Holding the press for several seconds triggers the power chip's hardware reset;
 apps must not ask users for a long press.
 
+### NestGen2.Gesture — clicks, double clicks, long presses
+
+Subscribe to `:gesture` for `{:nest_gen2, :gesture, :click | :double_click | :long_press}`,
+worked out from the button's raw `:down`/`:up` (which `:button` still sends at once).
+
+| Config | Default | |
+|---|---|---|
+| `button_double_click_ms` | 300 | a second press within this of the first release is a double click; `nil` turns double clicks off |
+| `button_long_press_ms` | 800 | held this long is a long press, sent while still held; keep it well under 10 s (holding 10 s restarts the Nest) |
+
+A single `:click` is only certain once the double-click window has passed, so it arrives that
+long after the release. Apps that need an instant response use `:button` `:down`.
+
 ### NestGen2.Piezo
 
 ```elixir

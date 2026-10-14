@@ -14,6 +14,7 @@ defmodule NestGen2 do
   | `:dial_step` | `%{direction: :cw \\| :ccw, angle: degrees}` |
   | `:light` | `%{level: counts}` (light flickering as someone moves nearby, or switched on) |
   | `:button` | `:down \\| :up` |
+  | `:gesture` | `:click \\| :double_click \\| :long_press` (see `NestGen2.Gesture`) |
   | `:motion` | `%{level: 0..10, near: boolean, far: boolean}` |
   | `:climate` | `%{temperature_c: float, humidity_pct: float}` |
   | `:battery` | `%{millivolts: integer}` |
@@ -21,9 +22,20 @@ defmodule NestGen2 do
   """
 
   @registry NestGen2.Registry
-  @topics [:dial, :dial_step, :button, :motion, :light, :climate, :battery, :power, :wifi]
+  @topics [
+    :dial,
+    :dial_step,
+    :button,
+    :gesture,
+    :motion,
+    :light,
+    :climate,
+    :battery,
+    :power,
+    :wifi
+  ]
 
-  @type topic :: :dial | :dial_step | :button | :motion | :climate | :battery | :power
+  @type topic :: :dial | :dial_step | :button | :gesture | :motion | :climate | :battery | :power
 
   @doc "The SDK's version, e.g. \"0.2.0\"."
   @spec version() :: String.t()

@@ -3,6 +3,12 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
+## 0.4.0 (2026-10-14)
+
+- `NestGen2.Gesture` and the `:gesture` topic: `:click`, `:double_click` and `:long_press` from
+  the button, with `button_double_click_ms` (default 300, `nil` for none) and
+  `button_long_press_ms` (default 800). `:button` `:down`/`:up` are unchanged.
+
 ## 0.3.0 (2026-10-13)
 
 - `NestGen2.Storage`: per-app settings in flash (`put/3`, `get/3`, `delete/2`, `keys/1`,
