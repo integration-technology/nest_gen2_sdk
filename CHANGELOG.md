@@ -3,8 +3,13 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
-## Unreleased
+## 0.5.1 (2026-10-15)
 
+- Deep sleep: the sleep notice's low-temperature threshold (`c2`) is now 5 °C instead of
+  Nest's 16.48 °C. Below the threshold the base woke the display every 30 s (wake reason
+  `0x0004`), so on a cold morning the Nest barely slept; with 5 °C it sleeps the full 270 s.
+- `docs/power.md`: why the Nest drains its battery on its base unless it deep-sleeps, what
+  the SDK does about it, and what an app should do.
 - `docs/backplate.md`: the backplate's hardware and serial protocol (frames, start-up,
   keep-alive, the sleep protocol and every known message), from our captures and the
   cuckoo-nest project's research, with each fact's source and credits.

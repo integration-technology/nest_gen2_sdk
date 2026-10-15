@@ -35,12 +35,16 @@ defmodule NestGen2.Backplate.Handshake do
   What Nest's client sends just before it suspends (capture of 2026-10-13):
   the base then stays quiet, keeping its readings, for `seconds` (a1) unless
   something (motion) makes it wake the head early. b9 carries the room
-  temperature in hundredths of a degree; c2, b5, b3, ba and a4 are Nest's own
+  temperature in hundredths of a degree. c2 carries a low-temperature
+  threshold (Nest sent 15.51 and 16.48 degC there, its heating thresholds):
+  below it the base wakes the head every 30 s (wake reason 0x0004) so it can
+  decide about heating, so the SDK, which controls no heating, sends
+  `low_c_centi` (5.00 degC by default). b5, b3, ba and a4 are Nest's own
   values, sent as they were.
   """
-  def sleep_burst(centi_c, seconds) do
+  def sleep_burst(centi_c, seconds, low_c_centi \\ 500) do
     [
-      {0xC2, <<0x00, 0x00, 0x70, 0x06, 0x00, 0x80>>},
+      {0xC2, <<0x00, 0x00, low_c_centi::16-little, 0x00, 0x80>>},
       {0xB5, <<0x0F, 0x00>>},
       {0xB3, <<0xFF, 0xFF, 0xFF, 0xFF>>},
       {0xB9, <<0::16, centi_c::16-little>>},

@@ -106,15 +106,20 @@ green light blinks *(✓)*.
 How Nest's own software keeps within the backplate's power budget (captured
 2026-10-13, and what `NestGen2.Power`'s deep sleep does) *(✓)*:
 
-1. **Going to sleep**, the display sends: `c2 000070060080`, `b5 0f00`,
+1. **Going to sleep**, the display sends: `c2 0000` + a low-temperature
+   threshold (hundredths of °C, u16le) + `0080`, `b5 0f00`,
    `b3 ffffffff`, `b9 0000` + room temperature (hundredths of °C, u16le),
    `ba 000000000000`, `a4 e707`, and **`a1` = seconds it intends to sleep**
-   (u16le), then suspends to RAM.
+   (u16le), then suspends to RAM. Nest's software sent 15.51 °C and 16.48 °C
+   as the `c2` threshold; below it the base wakes the display every 30 s with
+   reason `0x0004` (seen on a cold morning), presumably so a thermostat can
+   decide about heating. The SDK sends 5 °C *(✓)*.
 2. The backplate goes quiet, keeping its readings, until that time is up or it
    has a reason to wake the display (it does so over the serial line).
 3. **Waking**, the display sends `83`; the backplate answers **`0014`**, the wake
-   reason (`0x0080` when someone moved near it; `0x0020`, `0x0200` and `0` seen
-   for other reasons), then `a2` brings what it kept while the display slept, and
+   reason (`0x0080` when someone moved near it; `0x0004` when the temperature is
+   below the `c2` threshold; `0x0001`, `0x0020`, `0x0200` and `0` seen for other
+   reasons), then `a2` brings what it kept while the display slept, and
    `a3` resumes the readings.
 
 On a desk stand, with the display awake all the time the battery fell about
@@ -136,7 +141,7 @@ On a desk stand, with the display awake all the time the battery fell about
 | `000b` | Backplate state | bytes 6-7 input mV (0 when unpowered), 12-13 battery mV | ✓ (cuckoo: 8-9 Vin/100, 10-11 Vop/1000, 12-13 Vbat/1000) |
 | `000c` | Raw sensor ADC | 0-1 PIR raw, 10-11 ambient IR, 12-13 ambient visible | cuckoo |
 | `0010` | TFE id | 3 bytes | both |
-| `0014` | Wake reason | u16le flags, `0x0080` = motion | ✓ |
+| `0014` | Wake reason | u16le flags, `0x0080` = motion, `0x0004` = below the low-temperature threshold | ✓ |
 | `0018` | Firmware version | ASCII | both |
 | `0019` | Build info | ASCII | both |
 | `001b` | Hardware version | ASCII | ✓ |
@@ -164,7 +169,8 @@ On a desk stand, with the display awake all the time the battery fell about
 | `0098`–`009f` | Queries (see Start-up) | | both |
 | `00a1` | Sleep for (part of the sleep notice) | u16le seconds | ✓ |
 | `00a2` / `00a3` | Request buffers / acknowledge their end | | both |
-| `00a4`, `00b3`, `00b5`, `00b9`, `00ba`, `00c2` | Sleep notice (see Sleep) | | ✓ |
+| `00c2` | Sleep notice: low-temperature threshold | `0000`, u16le 1/100 °C, `0080` | ✓ |
+| `00a4`, `00b3`, `00b5`, `00b9`, `00ba` | Sleep notice (see Sleep) | | ✓ |
 | `00b1` | Temperature lock | | cuckoo |
 | `00c0` | Set power steal mode | `00000000` | both |
 | `00ff` | Reset | | both |

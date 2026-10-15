@@ -253,10 +253,10 @@ Run `--check`, then read the app's log.
   its base; it starts by itself once there's enough charge (this can take an hour or more).
   Holding the display down does nothing until then.
 
-**The Nest ran flat.** The base powers the display and charges its battery. If the display
-sits loosely on the base or stand, or the stand's USB supply is weak, the battery can drain
-while it's "plugged in". Seat it firmly, use a decent 5 V supply, and set the screen to
-sleep (foxbus: press on the home screen, then *Screen*) rather than *Always on*.
+**The Nest ran flat.** The base charges the display with only about 120 mA, less than it
+uses awake, so it drains while "plugged in" unless it deep-sleeps: set the screen to sleep
+(foxbus: press on the home screen, then *Screen*) rather than *Always on*. See
+[power.md](power.md). Seat the display firmly on its base, and use a decent 5 V supply.
 
 **The screen doesn't wake when you walk up to it.** The motion sensor is better
 at movement across the room than straight towards it. Pressing the display

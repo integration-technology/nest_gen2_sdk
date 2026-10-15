@@ -47,7 +47,10 @@ defmodule NestGen2.Backplate.HandshakeTest do
   end
 
   test "the sleep notice carries the temperature and the seconds, as Nest's does" do
-    burst = Handshake.sleep_burst(2271, 0x0121)
+    burst = Handshake.sleep_burst(2271, 0x0121, 0x0670)
+    assert {0xC2, <<0x00, 0x00, 0x70, 0x06, 0x00, 0x80>>} in burst
+    # By default the low-temperature threshold is 5 degC, not Nest's 16.48.
+    assert {0xC2, <<0x00, 0x00, 0xF4, 0x01, 0x00, 0x80>>} in Handshake.sleep_burst(2271, 60)
     assert Enum.map(burst, &elem(&1, 0)) == [0xC2, 0xB5, 0xB3, 0xB9, 0xBA, 0xA4, 0xA1]
     # Byte for byte what Nest's client sent before its 277 s sleep.
     assert {0xB9, <<0x00, 0x00, 0xDF, 0x08>>} in burst

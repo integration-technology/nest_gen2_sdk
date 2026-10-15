@@ -29,6 +29,10 @@ Nest thermostat to the example app running on it, then to your own app
 (starting from [`examples/hello_nest`](examples/hello_nest)). `platform/install.sh`
 does the device side; [`platform/README.md`](platform/README.md) explains it.
 
+**Battery and sleep:** on its base or stand the Nest gets only about 120 mA, so an
+app must let the SDK deep-sleep it, or the battery drains while "plugged in";
+[docs/power.md](docs/power.md) explains why and what an app should do.
+
 **How the hardware talks:** [docs/backplate.md](docs/backplate.md) describes the backplate
 (the base) and its serial protocol, from our own captures and the
 [cuckoo-nest](https://github.com/cuckoo-nest) project's research, with credits.
