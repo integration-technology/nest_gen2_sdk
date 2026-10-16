@@ -22,7 +22,13 @@ step says what you should see; if you don't see it, check
 - **Power for it.** The display unit runs from its own battery for a while,
   but needs its base: a wall plate, the Nest desk stand, or a Heat Link base.
   The SDK talks to the base, and without it the Nest can't stay up.
-- **A USB cable** (micro-USB to the back of the display) for flashing.
+- **A USB data cable** (micro-USB) for flashing. Plug it into the socket on
+  the back of the **display**, not the one on the desk stand or base: the base's
+  socket only supplies power, so the computer never sees the Nest through it.
+  Many micro-USB cables are charge-only; to check yours, plug the display in
+  directly while it is running Nest's own software. A data cable makes it show
+  up as a small USB drive (`2464:0002 Nest` in `lsusb`, about 40 MB). Don't
+  write to that drive.
 - **A computer running Linux or macOS**, on the same network as the Nest.
 - **A 2.4 GHz Wi-Fi network.** The Nest's radio doesn't do 5 GHz. (A phone
   hotspot works; on an iPhone turn on *Maximize Compatibility*.)
