@@ -5,7 +5,7 @@ its screen in a browser. It's for developing and testing screens: change the
 code, restart, look, without building for the Nest or deploying.
 
 The app runs unchanged. With `target: :host` the SDK starts as usual but touches
-no hardware:
+no hardware ([architecture.html](architecture.html) draws both side by side):
 
 | On the Nest | On the host |
 |---|---|
