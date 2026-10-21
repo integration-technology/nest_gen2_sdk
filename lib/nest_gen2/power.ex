@@ -215,7 +215,12 @@ defmodule NestGen2.Power do
     if s.deep_sleep, do: schedule_deep(s, config(:deep_sleep_after_ms)), else: s
   end
 
+  # A computer never suspends for the app: deep sleep is a no-op on the host.
   defp schedule_deep(s, ms) do
+    if NestGen2.Config.host?(), do: s, else: start_deep_timer(s, ms)
+  end
+
+  defp start_deep_timer(s, ms) do
     s = cancel_deep(s)
     %{s | deep_timer: Process.send_after(self(), :deep_sleep, ms)}
   end

@@ -64,6 +64,7 @@ put_image(x, y, image) :: :ok            # draw a rectangle into the back buffer
 fill_rect(x, y, w, h, color) :: :ok
 put_text(x, y, text, opts) :: :ok        # opts: font, size, color, align
 present() :: :ok                         # flip: show everything drawn since the last present
+snapshot() :: image                      # what the screen shows; Image.to_png/1 for a PNG
 ```
 
 ### NestGen2.Image and NestGen2.Text — pixels and fonts
@@ -290,6 +291,22 @@ config :nest_gen2,
   time_servers: ["time.nest.com", "pool.ntp.org", :gateway],
   clock_sync_interval_ms: 3_600_000,
   clock_step_ms: 500
+```
+
+## Host mode
+
+`config :nest_gen2, target: :host` runs an app on a computer: no hardware, the
+screen drawn in memory and shown in a browser at http://localhost:4000, the ring
+turned with the mouse. See [host.md](host.md).
+
+```elixir
+NestGen2.Host.turn(degrees) :: :ok        # clockwise if positive
+NestGen2.Host.step(:cw | :ccw) :: :ok     # one Dial step
+NestGen2.Host.click() / double_click() / long_press() :: :ok
+NestGen2.Host.motion(level \\ 5) :: :ok
+NestGen2.Host.climate(temperature_c, humidity_pct) :: :ok
+NestGen2.Host.screenshot() :: png_binary
+NestGen2.Dial.turn(degrees) / press(:down | :up) :: :ok   # the same, on the Nest too
 ```
 
 ## Not in the API

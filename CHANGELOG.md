@@ -3,6 +3,25 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
+## 0.6.0 (2026-10-21)
+
+- **Host mode** (`config :nest_gen2, target: :host`): run an app on a computer instead of
+  the Nest, unchanged, to develop and test screens without deploying. The SDK touches no
+  hardware: the screen is drawn in memory, the climate is a steady simulated reading, and
+  deep sleep, the clock and Wi-Fi are left alone. See `docs/host.md`.
+- `NestGen2.Host.Viewer`: on the host, the screen in a browser at http://localhost:4000,
+  with the ring turned by mouse wheel, drag or arrow keys, and buttons for a press, double
+  click, long press and someone walking past. Uses OTP's own `:inets`; no new
+  dependencies.
+- `NestGen2.Host`: `turn/1`, `step/1`, `click/0`, `double_click/0`, `long_press/0`,
+  `motion/1`, `climate/2` and `screenshot/0`, producing the same events as the hardware.
+- `mix nest_gen2.host` builds the text renderer for the computer and checks for the fonts
+  (copied from your own Nest; they aren't shipped).
+- `NestGen2.Display.snapshot/0` (on the Nest too): what the screen shows.
+  `NestGen2.Image.to_png/1`.
+- `NestGen2.Dial.turn/1`, `press/1` and `step/0`.
+- Text fonts are found in `font_dir` (default the Nest's `/nestlabs/share/fonts`).
+
 ## 0.5.1 (2026-10-15)
 
 - Deep sleep: the sleep notice's low-temperature threshold (`c2`) is now 5 °C instead of

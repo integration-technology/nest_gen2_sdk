@@ -35,7 +35,12 @@ defmodule NestGen2.Piezo do
 
   @impl true
   def init(nil) do
-    {:ok, dev} = :file.open(@device, [:write, :raw, :binary])
+    # Silent on a computer.
+    dev =
+      unless NestGen2.Config.host?() do
+        {:ok, dev} = :file.open(@device, [:write, :raw, :binary])
+        dev
+      end
 
     {:ok,
      %{dev: dev, last_click: 0, stop_ref: nil, click_on_step: NestGen2.Config.get(:click_on_step)}}
@@ -79,6 +84,8 @@ defmodule NestGen2.Piezo do
   end
 
   # 16-byte input_event for this 32-bit kernel: zero timeval, type, code, value.
+  defp write_tone(nil, _hz), do: :ok
+
   defp write_tone(dev, hz) do
     :ok = :file.write(dev, [event(@ev_snd, @snd_tone, hz), event(@ev_syn, 0, 0)])
   end

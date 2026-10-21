@@ -2,6 +2,11 @@ defmodule NestGen2.Config do
   @moduledoc false
 
   @defaults [
+    target: :nest,
+    host_viewer: true,
+    host_viewer_port: 4000,
+    host_viewer_ip: {127, 0, 0, 1},
+    host_climate: {20.0, 45.0},
     idle_timeout_ms: 30_000,
     wake_sources: [:dial, :button, :motion, :light],
     motion_threshold: 2,
@@ -38,6 +43,25 @@ defmodule NestGen2.Config do
 
   def get(key), do: Application.get_env(:nest_gen2, key, Keyword.fetch!(@defaults, key))
 
-  @doc "Absolute path of a native helper shipped in priv/."
-  def native(name), do: Application.app_dir(:nest_gen2, ["priv", name])
+  @doc "Whether the SDK runs on a computer instead of a Nest (`target: :host`)."
+  def host?, do: get(:target) == :host
+
+  @doc """
+  Absolute path of a native helper: shipped in priv/ for the Nest, or built for
+  this computer by `mix nest_gen2.host` when running on the host.
+  """
+  def native(name) do
+    if host?(),
+      do: Path.join(host_dir("bin"), name),
+      else: Application.app_dir(:nest_gen2, ["priv", name])
+  end
+
+  @doc "Where the Nest's fonts are: the device's own, or a copy on the host."
+  def font_dir do
+    Application.get_env(:nest_gen2, :font_dir) ||
+      if host?(), do: host_dir("fonts"), else: "/nestlabs/share/fonts"
+  end
+
+  @doc "A directory under ~/.nest_gen2_sdk on the host (bin, fonts, data)."
+  def host_dir(name), do: Path.join([System.user_home!(), ".nest_gen2_sdk", name])
 end

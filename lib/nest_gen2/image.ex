@@ -46,6 +46,25 @@ defmodule NestGen2.Image do
   @spec row(t, non_neg_integer) :: binary
   def row(%__MODULE__{width: w, data: data}, y), do: binary_part(data, y * w * 4, w * 4)
 
+  @doc "Encodes the image as a PNG (8-bit RGB), e.g. for a screenshot."
+  @spec to_png(t) :: binary
+  def to_png(%__MODULE__{width: w, height: h} = image) do
+    rows =
+      for y <- 0..(h - 1) do
+        [0 | for(<<b, g, r, _ <- row(image, y)>>, do: <<r, g, b>>)]
+      end
+
+    IO.iodata_to_binary([
+      <<0x89, "PNG\r\n", 0x1A, "\n">>,
+      png_chunk("IHDR", <<w::32, h::32, 8, 2, 0, 0, 0>>),
+      png_chunk("IDAT", :zlib.compress(rows)),
+      png_chunk("IEND", <<>>)
+    ])
+  end
+
+  defp png_chunk(type, data),
+    do: [<<byte_size(data)::32>>, type, data, <<:erlang.crc32([type, data])::32>>]
+
   @doc false
   def pixel(color) do
     {r, g, b} = color(color)

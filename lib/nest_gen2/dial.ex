@@ -34,17 +34,34 @@ defmodule NestGen2.Dial do
   @spec set_step(pos_integer | nil) :: :ok
   def set_step(degrees), do: GenServer.call(__MODULE__, {:put, :step, degrees})
 
+  @doc "Degrees between `:dial_step` events, or nil."
+  @spec step() :: pos_integer | nil
+  def step, do: GenServer.call(__MODULE__, :step)
+
   @doc "Calibration: sensor counts per full turn (default 7800)."
   @spec set_counts_per_turn(pos_integer) :: :ok
   def set_counts_per_turn(counts) when is_integer(counts) and counts > 0,
     do: GenServer.call(__MODULE__, {:put, :counts, counts})
 
+  @doc """
+  Simulates turning the ring by `degrees` (positive is clockwise), with the same
+  events a real turn gives. For the host viewer, tests and remote control.
+  """
+  @spec turn(number) :: :ok
+  def turn(degrees) when is_number(degrees), do: GenServer.call(__MODULE__, {:turn, degrees})
+
+  @doc "Simulates pressing (`:down`) or releasing (`:up`) the ring."
+  @spec press(:down | :up) :: :ok
+  def press(state) when state in [:down, :up], do: GenServer.call(__MODULE__, {:press, state})
+
   @impl true
   def init(nil) do
+    host? = NestGen2.Config.host?()
+
     {:ok,
      %{
-       rotary: open(@rotary),
-       button: open(@button),
+       rotary: if(host?, do: nil, else: open(@rotary)),
+       button: if(host?, do: nil, else: open(@button)),
        angle: 0.0,
        step: NestGen2.Config.get(:dial_step_degrees),
        counts: NestGen2.Config.get(:dial_counts_per_turn)
@@ -53,8 +70,27 @@ defmodule NestGen2.Dial do
 
   @impl true
   def handle_call(:angle, _from, s), do: {:reply, s.angle, s}
+  def handle_call(:step, _from, s), do: {:reply, s.step, s}
   def handle_call(:reset, _from, s), do: {:reply, :ok, %{s | angle: 0.0}}
   def handle_call({:put, key, value}, _from, s), do: {:reply, :ok, Map.put(s, key, value)}
+
+  # In 1° pieces, as the sensor reports a real turn, so every step boundary
+  # crossed gives its own :dial_step.
+  def handle_call({:turn, degrees}, _from, s) do
+    pieces = List.duplicate(sign(degrees), trunc(abs(degrees))) ++ [degrees - trunc(degrees)]
+
+    s =
+      pieces
+      |> Enum.reject(&(&1 == 0))
+      |> Enum.reduce(s, fn d, s -> turned(s, -d * s.counts / 360) end)
+
+    {:reply, :ok, s}
+  end
+
+  def handle_call({:press, state}, _from, s) do
+    button(state)
+    {:reply, :ok, s}
+  end
 
   @impl true
   def handle_info({port, {:data, {_, line}}}, s) do
@@ -82,17 +118,7 @@ defmodule NestGen2.Dial do
 
   def handle_info(_other, s), do: {:noreply, s}
 
-  defp event(port, @ev_rel, @rel_x, counts, %{rotary: port} = s) do
-    {angle, delta, step} = rotate(s.angle, counts, s.counts, s.step)
-    NestGen2.publish(:dial, %{delta: delta, angle: angle})
-
-    if step do
-      NestGen2.publish(:dial_step, %{direction: step, angle: angle})
-      Piezo.step_click()
-    end
-
-    %{s | angle: angle}
-  end
+  defp event(port, @ev_rel, @rel_x, counts, %{rotary: port} = s), do: turned(s, counts)
 
   defp event(port, @ev_key, _code, value, %{button: port} = s) do
     case value do
@@ -105,6 +131,21 @@ defmodule NestGen2.Dial do
   end
 
   defp event(_port, _type, _code, _value, s), do: s
+
+  defp sign(x) when x < 0, do: -1
+  defp sign(_), do: 1
+
+  defp turned(s, counts) do
+    {angle, delta, step} = rotate(s.angle, counts, s.counts, s.step)
+    NestGen2.publish(:dial, %{delta: delta, angle: angle})
+
+    if step do
+      NestGen2.publish(:dial_step, %{direction: step, angle: angle})
+      Piezo.step_click()
+    end
+
+    %{s | angle: angle}
+  end
 
   @doc false
   # Applies raw sensor counts to the angle. The sensor counts negative for

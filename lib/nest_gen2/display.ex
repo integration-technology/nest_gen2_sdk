@@ -74,8 +74,28 @@ defmodule NestGen2.Display do
   @spec present() :: :ok
   def present, do: GenServer.call(__MODULE__, :present)
 
+  @doc """
+  What the screen shows: the frame as of the last `present/0`, as a 320×320
+  image. `NestGen2.Image.to_png/1` turns it into a PNG.
+  """
+  @spec snapshot() :: Image.t()
+  def snapshot, do: GenServer.call(__MODULE__, :snapshot)
+
   @impl true
   def init(nil) do
+    if NestGen2.Config.host?(), do: init_host(), else: init_device()
+  end
+
+  # On a computer the frame lives only in memory; snapshot/0 shows it.
+  defp init_host do
+    NestGen2.subscribe(:power)
+    frame = Frame.new({0, 0, 0})
+
+    {:ok,
+     %{fb: nil, frame: frame, shown: frame, visible: 0, damage: %{0 => [], 1 => []}, awake: true}}
+  end
+
+  defp init_device do
     # Our boots leave the virtual screen at 320x320; two pages need 320x640.
     File.write!(Path.join(@sysfs, "virtual_size"), "320,640")
     # Otherwise the kernel console blanks the screen after 10 minutes without a
@@ -88,10 +108,13 @@ defmodule NestGen2.Display do
     NestGen2.subscribe(:power)
     schedule_refresh()
 
+    frame = Frame.from_binary(current)
+
     {:ok,
      %{
        fb: fb,
-       frame: Frame.from_binary(current),
+       frame: frame,
+       shown: frame,
        visible: visible,
        damage: %{visible => [], (1 - visible) => [:all]},
        awake: true
@@ -111,11 +134,14 @@ defmodule NestGen2.Display do
 
   def handle_call(:present, _from, state), do: {:reply, :ok, present(state)}
 
+  def handle_call(:snapshot, _from, state),
+    do: {:reply, Image.from_raw(@size, @size, Frame.to_binary(state.shown)), state}
+
   @impl true
   def handle_info({:nest_gen2, :power, power}, state) do
     # Belt and braces: if anything has turned console blanking back on, waking
     # the screen must still show it.
-    if power == :awake, do: NestGen2.Console.unblank()
+    if power == :awake and state.fb, do: NestGen2.Console.unblank()
     {:noreply, %{state | awake: power == :awake}}
   end
 
@@ -133,6 +159,8 @@ defmodule NestGen2.Display do
 
     %{state | damage: %{0 => add.(d[0]), 1 => add.(d[1])}}
   end
+
+  defp present(%{fb: nil} = state), do: %{state | shown: state.frame}
 
   defp present(%{fb: fb, visible: visible, damage: d, frame: frame} = state) do
     hidden = 1 - visible
@@ -152,7 +180,7 @@ defmodule NestGen2.Display do
     end
 
     File.write!(Path.join(@sysfs, "pan"), "0,#{hidden * @size}")
-    %{state | visible: hidden, damage: %{d | hidden => []}}
+    %{state | visible: hidden, damage: %{d | hidden => []}, shown: frame}
   end
 
   # Full-page writes must be chunked to <=4KB on this omapfb driver.

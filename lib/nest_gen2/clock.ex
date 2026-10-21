@@ -58,13 +58,14 @@ defmodule NestGen2.Clock do
 
   @impl true
   def init(nil) do
-    Process.send_after(self(), :sync, @first_sync_ms)
+    # On a computer the system keeps its own time: never set it from here.
+    unless Config.host?(), do: Process.send_after(self(), :sync, @first_sync_ms)
     {:ok, %{synced_at: nil, synced_mono: nil, server: nil, offset_ms: nil, last_error: nil}}
   end
 
   @impl true
   def handle_call(:sync, _from, state) do
-    {reply, state} = do_sync(state)
+    {reply, state} = if Config.host?(), do: {{:error, :host}, state}, else: do_sync(state)
     {:reply, reply, state}
   end
 
@@ -76,7 +77,8 @@ defmodule NestGen2.Clock do
     diff_s = DateTime.diff(utc, DateTime.utc_now(), :second)
 
     cond do
-      abs(diff_s) <= @observe_threshold_s ->
+      # On a computer the system keeps its own time.
+      Config.host?() or abs(diff_s) <= @observe_threshold_s ->
         :ok
 
       ntp_fresh?(state) ->

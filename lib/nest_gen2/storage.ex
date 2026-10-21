@@ -169,5 +169,11 @@ defmodule NestGen2.Storage do
   end
 
   defp base_dir,
-    do: Application.get_env(:nest_gen2, :storage_dir, "/media/scratch/.nest_gen2_sdk/data")
+    do: Application.get_env(:nest_gen2, :storage_dir) || default_dir()
+
+  defp default_dir do
+    if NestGen2.Config.host?(),
+      do: NestGen2.Config.host_dir("data"),
+      else: "/media/scratch/.nest_gen2_sdk/data"
+  end
 end

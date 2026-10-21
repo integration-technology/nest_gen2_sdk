@@ -31,6 +31,10 @@ defmodule NestGen2.Backlight do
   """
   @spec set_fade(pos_integer, pos_integer) :: :ok
   def set_fade(rise_ms, fall_ms) do
+    if NestGen2.Config.host?(), do: :ok, else: write_fade(rise_ms, fall_ms)
+  end
+
+  defp write_fade(rise_ms, fall_ms) do
     File.write!(Path.join(@chip, "ramp_rise_rate"), Integer.to_string(ramp_index(rise_ms)))
     File.write!(Path.join(@chip, "ramp_fall_rate"), Integer.to_string(ramp_index(fall_ms)))
   end
@@ -72,8 +76,12 @@ defmodule NestGen2.Backlight do
     {:noreply, state}
   end
 
-  defp write(%{on: true, level: level}), do: File.write(@brightness, "#{level}\n")
-  defp write(%{on: false}), do: File.write(@brightness, "0\n")
+  defp write(state) do
+    unless NestGen2.Config.host?(), do: write_level(state)
+  end
+
+  defp write_level(%{on: true, level: level}), do: File.write(@brightness, "#{level}\n")
+  defp write_level(%{on: false}), do: File.write(@brightness, "0\n")
 
   @doc false
   def ramp_index(ms) do

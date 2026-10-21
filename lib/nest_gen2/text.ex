@@ -4,7 +4,8 @@ defmodule NestGen2.Text do
 
   The `textrender` helper (stb_truetype) rasterises text from the device's
   `/nestlabs/share/fonts`, so no font data ships with the SDK (Akkurat is
-  commercially licensed).
+  commercially licensed). On the host (see `docs/host.md`) it reads a copy of
+  your own Nest's fonts from `~/.nest_gen2_sdk/fonts`, or the `:font_dir` config.
 
   Options:
     * `:font` — `:bold` (default), `:regular`, or a path to a TrueType file
@@ -15,10 +16,7 @@ defmodule NestGen2.Text do
   use GenServer
   alias NestGen2.Image
 
-  @fonts %{
-    bold: "/nestlabs/share/fonts/AkkuratNest-Bold.ttf",
-    regular: "/nestlabs/share/fonts/AkkuratNest-Regular.ttf"
-  }
+  @fonts %{bold: "AkkuratNest-Bold.ttf", regular: "AkkuratNest-Regular.ttf"}
   @timeout 5000
 
   def start_link(_), do: GenServer.start_link(__MODULE__, nil, name: __MODULE__)
@@ -67,7 +65,12 @@ defmodule NestGen2.Text do
   end
 
   defp request(text, opts) do
-    font = Map.get(@fonts, Keyword.get(opts, :font, :bold), Keyword.get(opts, :font))
+    font =
+      case Keyword.get(opts, :font, :bold) do
+        name when is_map_key(@fonts, name) -> Path.join(NestGen2.Config.font_dir(), @fonts[name])
+        path -> path
+      end
+
     {fr, fg, fb} = opts |> Keyword.get(:color, {255, 255, 255}) |> Image.color()
     {br, bg, bb} = opts |> Keyword.get(:background, {0, 0, 0}) |> Image.color()
     size = Keyword.get(opts, :size, 36)

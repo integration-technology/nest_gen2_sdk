@@ -78,12 +78,20 @@ defmodule NestGen2.Backplate do
 
   @impl true
   def init(nil) do
-    send(self(), :cycle)
-    Process.send_after(self(), :silence_check, @silence_check_ms)
+    host? = NestGen2.Config.host?()
+
+    if host? do
+      # No base on a computer: a steady room reading instead, every 30 s. The
+      # first comes a moment after start, once the app has subscribed.
+      Process.send_after(self(), :host_climate, 3_000)
+    else
+      send(self(), :cycle)
+      Process.send_after(self(), :silence_check, @silence_check_ms)
+    end
 
     {:ok,
      %{
-       port: open(),
+       port: if(host?, do: nil, else: open()),
        rx: <<>>,
        frames: 0,
        last_frame_at: nil,
@@ -103,7 +111,8 @@ defmodule NestGen2.Backplate do
        light: nil,
        light_window: [],
        motion_threshold: NestGen2.Config.get(:motion_threshold),
-       temperature_offset_c: NestGen2.Config.get(:temperature_offset_c)
+       temperature_offset_c: NestGen2.Config.get(:temperature_offset_c),
+       host_climate: nil
      }}
   end
 
@@ -131,6 +140,9 @@ defmodule NestGen2.Backplate do
     {:reply, :ok, s}
   end
 
+  def handle_call({:host_climate, temperature_c, humidity_pct}, _from, s),
+    do: {:reply, :ok, host_climate(s, {temperature_c, humidity_pct})}
+
   def handle_call(:resumed, _from, s) do
     tx(s, 0x83)
     Process.send_after(self(), :a2, 200)
@@ -151,6 +163,11 @@ defmodule NestGen2.Backplate do
     Process.send_after(self(), :a2, @a2_delay_ms)
     Process.send_after(self(), :cycle, @cycle_ms)
     {:noreply, s}
+  end
+
+  def handle_info(:host_climate, s) do
+    Process.send_after(self(), :host_climate, @cycle_ms)
+    {:noreply, host_climate(s, s.host_climate || NestGen2.Config.get(:host_climate))}
   end
 
   def handle_info(:a2, s) do
@@ -345,6 +362,12 @@ defmodule NestGen2.Backplate do
   end
 
   defp write_calibration(s), do: s
+
+  defp host_climate(s, {temperature_c, humidity_pct} = reading) do
+    temperature_c = temperature_c * 1.0
+    s = handle_frame({:climate, temperature_c - s.temperature_offset_c, humidity_pct * 1.0}, s)
+    %{s | host_climate: reading}
+  end
 
   defp publish_motion(s, level),
     do: NestGen2.publish(:motion, %{level: level, near: s.near, far: s.far})

@@ -33,6 +33,10 @@ does the device side; [`platform/README.md`](platform/README.md) explains it.
 app must let the SDK deep-sleep it, or the battery drains while "plugged in";
 [docs/power.md](docs/power.md) explains why and what an app should do.
 
+**Developing on your computer:** run your app on a laptop or desktop with
+`target: :host` and see the Nest's screen in a browser, turning the ring with the
+mouse; no build or deploy for the Nest needed. See [docs/host.md](docs/host.md).
+
 **How the hardware talks:** [docs/backplate.md](docs/backplate.md) describes the backplate
 (the base) and its serial protocol, from our own captures and the
 [cuckoo-nest](https://github.com/cuckoo-nest) project's research, with credits.

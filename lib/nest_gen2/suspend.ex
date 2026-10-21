@@ -16,6 +16,10 @@ defmodule NestGen2.Suspend do
   """
   @spec sleep(pos_integer) :: {:ok, non_neg_integer} | {:error, term}
   def sleep(seconds) do
+    if NestGen2.Config.host?(), do: {:error, :host}, else: suspend(seconds)
+  end
+
+  defp suspend(seconds) do
     # The backplate's line must be able to wake us: it's how motion does.
     _ = File.write(path(:backplate_wakeup_path), "enabled")
     alarm = path(:rtc_wakealarm_path)

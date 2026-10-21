@@ -92,7 +92,8 @@ defmodule NestGen2.Wifi do
 
   @impl true
   def init(nil) do
-    send(self(), :open)
+    # On a computer there is no wpa_supplicant of ours: Wi-Fi stays unavailable.
+    unless NestGen2.Config.host?(), do: send(self(), :open)
 
     {:ok,
      %{

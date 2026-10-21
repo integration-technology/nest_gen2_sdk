@@ -21,6 +21,10 @@ defmodule NestGen2.Console do
   def unblank, do: write("\e[13]")
 
   defp write(seq) do
+    if NestGen2.Config.host?(), do: :ok, else: write_tty(seq)
+  end
+
+  defp write_tty(seq) do
     case File.write(@tty, seq) do
       :ok -> :ok
       {:error, _} = error -> error
