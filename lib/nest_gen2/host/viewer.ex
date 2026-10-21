@@ -143,11 +143,14 @@ defmodule NestGen2.Host.Viewer do
       @media (prefers-color-scheme: dark) { :root { --bg: #161616; --fg: #eee; --muted: #999; --btn: #262626; --line: #3a3a3a; } }
       body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.4 system-ui, sans-serif;
              display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 32px 16px; }
-      .bezel { width: 380px; max-width: 90vw; aspect-ratio: 1; border-radius: 50%; padding: 30px; box-sizing: border-box;
+      /* Explicit width and height (not aspect-ratio) so it stays round in a flex column in
+         every browser: the screen inside is exactly 320 px, as on the Nest. */
+      .bezel { --d: min(380px, 90vw); width: var(--d); height: var(--d); flex: none;
+               border-radius: 50%; padding: calc(var(--d) * 30 / 380); box-sizing: border-box;
                background: radial-gradient(circle at 30% 25%, #e8e8e8, #8a8a8a 60%, #5a5a5a);
                box-shadow: 0 10px 30px rgba(0,0,0,.35); cursor: grab; touch-action: none; }
       .glass { width: 100%; height: 100%; border-radius: 50%; background: #000; overflow: hidden; }
-      .glass img { width: 100%; height: 100%; display: block; transition: opacity .4s; }
+      .glass img { width: 100%; height: 100%; display: block; object-fit: contain; transition: opacity .4s; }
       .asleep img { opacity: .08; }
       .controls { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 420px; }
       button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line);
@@ -169,7 +172,7 @@ defmodule NestGen2.Host.Viewer do
         <button data-post="/long_press">Long press</button>
         <button data-post="/motion">Walk past</button>
       </div>
-      <div class="hint">Scroll on the ring or use ← → to turn it; click it or press Space to press.</div>
+      <div class="hint">Scroll on the ring, drag it round, or use ← → to turn it; click it or press Space to press.</div>
     <script>
       const post = (path) => fetch(path, { method: "POST" }).then(refresh);
       document.querySelectorAll("[data-post]").forEach(b => b.onclick = () => post(b.dataset.post));
