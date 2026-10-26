@@ -3,6 +3,14 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
+## 0.6.1 (2026-10-26)
+
+- Watch-only viewer: `config :nest_gen2, host_viewer_controls: false` shows the screen
+  with no buttons and refuses every press, turn and climate change, for putting an app's
+  screen on a public website. Its replies may be cached for a second by a CDN in front.
+  See "Showing it publicly" in `docs/host.md`.
+- The viewer encodes the screen only when it changes, instead of on every fetch.
+
 ## 0.6.0 (2026-10-21)
 
 - **Host mode** (`config :nest_gen2, target: :host`): run an app on a computer instead of

@@ -65,6 +65,27 @@ defmodule NestGen2.HostTest do
     assert_raise ArgumentError, fn -> Viewer.route("POST", "/turn", %{"deg" => "abc"}) end
   end
 
+  test "a watch-only viewer refuses every press but still shows the page" do
+    Application.put_env(:nest_gen2, :host_viewer_controls, false)
+    on_exit(fn -> Application.delete_env(:nest_gen2, :host_viewer_controls) end)
+
+    assert {403, _, _} = Viewer.respond("POST", "/click", %{})
+    assert {403, _, _} = Viewer.respond("POST", "/climate", %{"t" => "30", "h" => "50"})
+    assert {200, _, page} = Viewer.respond("GET", "/", %{})
+    refute page =~ "data-post"
+  end
+
+  test "the viewer's screen follows what is shown, though it's cached" do
+    start_supervised!(Display)
+    {200, _, first} = Viewer.respond("GET", "/screen.png", %{})
+    assert {200, _, ^first} = Viewer.respond("GET", "/screen.png", %{})
+
+    Display.set_background("#FF0000")
+    Display.present()
+    {200, _, changed} = Viewer.respond("GET", "/screen.png", %{})
+    assert changed != first
+  end
+
   defp chunk(png, type) do
     [before, after_type] = :binary.split(png, type)
     <<_::binary-size(byte_size(before) - 4), len::32>> = before

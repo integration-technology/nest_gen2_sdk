@@ -7,9 +7,11 @@ defmodule NestGen2.Host.Viewer do
   ring with the mouse wheel or the arrow keys; click or press Space/Enter to
   press it. Buttons give a double click, a long press and someone walking past.
 
-  Config: `host_viewer` (default true), `host_viewer_port` (4000) and
+  Config: `host_viewer` (default true), `host_viewer_port` (4000),
   `host_viewer_ip` (`{127, 0, 0, 1}`: only this computer; from another one, use
-  an SSH tunnel, see `docs/host.md`).
+  an SSH tunnel, see `docs/host.md`) and `host_viewer_controls` (true; false
+  makes it watch-only, for showing the app publicly: no buttons, every POST
+  refused, and replies a cache in front may keep for a second).
 
   Endpoints, for scripts and tests too:
 
@@ -78,7 +80,7 @@ defmodule NestGen2.Host.Viewer do
 
     {status, type, body} =
       try do
-        route(to_string(method), uri.path, params)
+        respond(to_string(method), uri.path, params)
       rescue
         error in ArgumentError -> {400, "text/plain", Exception.message(error)}
         error -> {500, "text/plain", Exception.message(error)}
@@ -86,19 +88,32 @@ defmodule NestGen2.Host.Viewer do
 
     body = IO.iodata_to_binary(body)
 
+    # Watch-only, every viewer sees the same screen, so a cache in front (a CDN)
+    # can answer them all for a second.
+    cache = if controls?() or status != 200, do: ~c"no-store", else: ~c"public, max-age=1"
+
     head = [
       code: status,
       content_type: String.to_charlist(type),
       content_length: Integer.to_charlist(byte_size(body)),
-      cache_control: ~c"no-store"
+      cache_control: cache
     ]
 
     {:proceed, [response: {:response, head, body}]}
   end
 
   @doc false
-  def route("GET", "/", _), do: {200, "text/html; charset=utf-8", page()}
-  def route("GET", "/screen.png", _), do: {200, "image/png", NestGen2.Host.screenshot()}
+  def respond(method, path, params) do
+    if method == "POST" and not controls?(),
+      do: {403, "text/plain", "this viewer is watch-only"},
+      else: route(method, path, params)
+  end
+
+  defp controls?, do: NestGen2.Config.get(:host_viewer_controls)
+
+  @doc false
+  def route("GET", "/", _), do: {200, "text/html; charset=utf-8", page(controls?())}
+  def route("GET", "/screen.png", _), do: {200, "image/png", screen_png()}
 
   def route("GET", "/state", _),
     do: {200, "text/plain", if(NestGen2.Power.awake?(), do: "awake", else: "asleep")}
@@ -130,7 +145,84 @@ defmodule NestGen2.Host.Viewer do
     end
   end
 
-  defp page do
+  # Every open page fetches the screen about once a second, so it's encoded
+  # only when it changes. shortcut: :persistent_term makes each update cost a
+  # scan of all processes; fine at a screen change every few seconds, move it to
+  # ETS if an app redraws many times a second.
+  defp screen_png do
+    image = NestGen2.Display.snapshot()
+
+    case :persistent_term.get(__MODULE__, nil) do
+      {data, png} when data == image.data ->
+        png
+
+      _ ->
+        png = NestGen2.Image.to_png(image)
+        :persistent_term.put(__MODULE__, {image.data, png})
+        png
+    end
+  end
+
+  @controls_html """
+  <div class="controls">
+    <button data-post="/step?dir=ccw">⟲ Step</button>
+    <button data-post="/click">Press</button>
+    <button data-post="/step?dir=cw">Step ⟳</button>
+    <button data-post="/double_click">Double click</button>
+    <button data-post="/long_press">Long press</button>
+    <button data-post="/motion">Walk past</button>
+  </div>
+  <div class="hint">Scroll on the ring, drag it round, or use ← → to turn it; click it or press Space to press.</div>
+  """
+
+  @controls_js """
+  dial.title = "Scroll or drag to turn; click to press";
+  dial.style.cursor = "grab";
+  const post = (path) => fetch(path, { method: "POST" }).then(refresh);
+  document.querySelectorAll("[data-post]").forEach(b => b.onclick = () => post(b.dataset.post));
+
+  let wheel = 0;
+  dial.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    wheel += e.deltaY;
+    if (Math.abs(wheel) >= 40) { post("/step?dir=" + (wheel > 0 ? "cw" : "ccw")); wheel = 0; }
+  }, { passive: false });
+  // Dragging round the ring turns it by the angle swept; a click without
+  // turning presses it.
+  let last = null, swept = 0, pending = 0, sending = false;
+  const angleAt = (e) => {
+    const r = dial.getBoundingClientRect();
+    return Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2)) * 180 / Math.PI;
+  };
+  const flush = () => {
+    if (sending || Math.abs(pending) < 1) return;
+    const deg = pending; pending = 0; sending = true;
+    fetch("/turn?deg=" + deg.toFixed(1), { method: "POST" }).finally(() => { sending = false; flush(); refresh(); });
+  };
+  dial.addEventListener("pointerdown", (e) => { last = angleAt(e); swept = 0; dial.setPointerCapture(e.pointerId); });
+  dial.addEventListener("pointermove", (e) => {
+    if (last === null) return;
+    const a = angleAt(e);
+    let d = a - last;
+    if (d > 180) d -= 360; else if (d < -180) d += 360;
+    last = a; swept += Math.abs(d); pending += d; flush();
+  });
+  dial.addEventListener("pointerup", () => { last = null; if (swept < 3) post("/click"); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight") post("/step?dir=cw");
+    else if (e.key === "ArrowLeft") post("/step?dir=ccw");
+    else if (e.key === " " || e.key === "Enter") { e.preventDefault(); post("/click"); }
+  });
+  """
+
+  defp page(controls?) do
+    {controls_html, controls_js, refresh_ms, stamp, asleep_text} =
+      if controls?,
+        do:
+          {@controls_html, @controls_js, 400, "Date.now()",
+           "Screen asleep (as on the Nest): press or walk past to wake"},
+        else: {"", "", 1000, "Math.floor(Date.now() / 1000)", "Screen asleep (as on the Nest)"}
+
     """
     <!doctype html>
     <html lang="en">
@@ -148,7 +240,7 @@ defmodule NestGen2.Host.Viewer do
       .bezel { --d: min(380px, 90vw); width: var(--d); height: var(--d); flex: none;
                border-radius: 50%; padding: calc(var(--d) * 30 / 380); box-sizing: border-box;
                background: radial-gradient(circle at 30% 25%, #e8e8e8, #8a8a8a 60%, #5a5a5a);
-               box-shadow: 0 10px 30px rgba(0,0,0,.35); cursor: grab; touch-action: none; }
+               box-shadow: 0 10px 30px rgba(0,0,0,.35); touch-action: none; }
       .glass { width: 100%; height: 100%; border-radius: 50%; background: #000; overflow: hidden; }
       .glass img { width: 100%; height: 100%; display: block; object-fit: contain; transition: opacity .4s; }
       .asleep img { opacity: .08; }
@@ -160,57 +252,14 @@ defmodule NestGen2.Host.Viewer do
     </style>
     </head>
     <body>
-      <div class="bezel" id="dial" title="Scroll or drag to turn; click to press">
+      <div class="bezel" id="dial">
         <div class="glass" id="glass"><img id="screen" src="/screen.png" alt="The Nest's screen"></div>
       </div>
       <div class="state" id="state">&nbsp;</div>
-      <div class="controls">
-        <button data-post="/step?dir=ccw">⟲ Step</button>
-        <button data-post="/click">Press</button>
-        <button data-post="/step?dir=cw">Step ⟳</button>
-        <button data-post="/double_click">Double click</button>
-        <button data-post="/long_press">Long press</button>
-        <button data-post="/motion">Walk past</button>
-      </div>
-      <div class="hint">Scroll on the ring, drag it round, or use ← → to turn it; click it or press Space to press.</div>
+    #{controls_html}
     <script>
-      const post = (path) => fetch(path, { method: "POST" }).then(refresh);
-      document.querySelectorAll("[data-post]").forEach(b => b.onclick = () => post(b.dataset.post));
-
       const dial = document.getElementById("dial");
-      let wheel = 0;
-      dial.addEventListener("wheel", (e) => {
-        e.preventDefault();
-        wheel += e.deltaY;
-        if (Math.abs(wheel) >= 40) { post("/step?dir=" + (wheel > 0 ? "cw" : "ccw")); wheel = 0; }
-      }, { passive: false });
-      // Dragging round the ring turns it by the angle swept; a click without
-      // turning presses it.
-      let last = null, swept = 0, pending = 0, sending = false;
-      const angleAt = (e) => {
-        const r = dial.getBoundingClientRect();
-        return Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2)) * 180 / Math.PI;
-      };
-      const flush = () => {
-        if (sending || Math.abs(pending) < 1) return;
-        const deg = pending; pending = 0; sending = true;
-        fetch("/turn?deg=" + deg.toFixed(1), { method: "POST" }).finally(() => { sending = false; flush(); refresh(); });
-      };
-      dial.addEventListener("pointerdown", (e) => { last = angleAt(e); swept = 0; dial.setPointerCapture(e.pointerId); });
-      dial.addEventListener("pointermove", (e) => {
-        if (last === null) return;
-        const a = angleAt(e);
-        let d = a - last;
-        if (d > 180) d -= 360; else if (d < -180) d += 360;
-        last = a; swept += Math.abs(d); pending += d; flush();
-      });
-      dial.addEventListener("pointerup", () => { last = null; if (swept < 3) post("/click"); });
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "ArrowRight") post("/step?dir=cw");
-        else if (e.key === "ArrowLeft") post("/step?dir=ccw");
-        else if (e.key === " " || e.key === "Enter") { e.preventDefault(); post("/click"); }
-      });
-
+    #{controls_js}
       const img = document.getElementById("screen");
       const glass = document.getElementById("glass");
       const state = document.getElementById("state");
@@ -221,13 +270,15 @@ defmodule NestGen2.Host.Viewer do
         const next = new Image();
         next.onload = () => { img.src = next.src; busy = false; };
         next.onerror = () => { busy = false; };
-        next.src = "/screen.png?t=" + Date.now();
-        fetch("/state").then(r => r.text()).then(s => {
+        // Watch-only, the same URL for every viewer within a second, so a cache can share it.
+        const t = #{stamp};
+        next.src = "/screen.png?t=" + t;
+        fetch("/state?t=" + t).then(r => r.text()).then(s => {
           glass.classList.toggle("asleep", s === "asleep");
-          state.textContent = s === "asleep" ? "Screen asleep (as on the Nest): press or walk past to wake" : "Screen awake";
+          state.textContent = s === "asleep" ? "#{asleep_text}" : "Screen awake";
         }).catch(() => { state.textContent = "Not connected"; });
       }
-      setInterval(refresh, 400);
+      setInterval(refresh, #{refresh_ms});
       refresh();
     </script>
     </body>

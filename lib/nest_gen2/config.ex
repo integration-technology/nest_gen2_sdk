@@ -6,6 +6,7 @@ defmodule NestGen2.Config do
     host_viewer: true,
     host_viewer_port: 4000,
     host_viewer_ip: {127, 0, 0, 1},
+    host_viewer_controls: true,
     host_climate: {20.0, 45.0},
     idle_timeout_ms: 30_000,
     wake_sources: [:dial, :button, :motion, :light],

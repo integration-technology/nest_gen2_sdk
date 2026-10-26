@@ -85,6 +85,24 @@ Or listen on another address with
 `config :nest_gen2, host_viewer_ip: {0, 0, 0, 0}`. Then anyone who can reach
 that port can press your app's buttons, so keep it to a trusted network.
 
+### Showing it publicly
+
+To put the screen on a public website, make the viewer watch-only:
+
+```elixir
+config :nest_gen2, host_viewer_controls: false
+```
+
+The page then has no buttons and ignores the mouse and keyboard, and the viewer
+refuses every press, turn and climate change (`403`), so visitors can't drive
+your app or each other's view: everyone sees the same screen. Your app has to
+move between its screens by itself. Replies may be kept for a second by a cache
+in front, such as a CDN, and the screen is only encoded when it changes, so
+many visitors cost about the same as one.
+
+Run it behind a reverse proxy or tunnel that adds HTTPS; the viewer itself
+speaks plain HTTP.
+
 ## Settings
 
 | Config | Default | |
@@ -93,6 +111,7 @@ that port can press your app's buttons, so keep it to a trusted network.
 | `host_viewer` | `true` | start the browser viewer on the host |
 | `host_viewer_port` | `4000` | |
 | `host_viewer_ip` | `{127, 0, 0, 1}` | address it listens on |
+| `host_viewer_controls` | `true` | `false`: watch-only, for showing publicly |
 | `host_climate` | `{20.0, 45.0}` | simulated °C and % humidity |
 | `font_dir` | `~/.nest_gen2_sdk/fonts` on the host | where the TrueType fonts are |
 | `storage_dir` | `~/.nest_gen2_sdk/data` on the host | `NestGen2.Storage`'s files |
