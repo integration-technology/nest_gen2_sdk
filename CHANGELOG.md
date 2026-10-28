@@ -3,6 +3,14 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
+## 0.6.3 (2026-10-28)
+
+- Deep sleep: **fix** a press that reached the SDK in the few milliseconds
+  before it read the wake-up count being left unhandled until the next wake
+  (up to 270 s). If anything is already waiting to be handled at that point,
+  the SDK handles it first and tries to sleep again shortly after.
+- No compiler warning in `NestGen2.Display` on newer Elixir versions.
+
 ## 0.6.2 (2026-10-28)
 
 - Deep sleep: **fix** a press or motion in the moment the Nest goes to sleep
