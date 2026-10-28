@@ -75,6 +75,24 @@ defmodule NestGen2.PowerDeepSleepTest do
     assert read(dir, "wakeup_count") == {:ok, "41"}
   end
 
+  defmodule ChattyBackplate do
+    # The base answers the sleep notice over its serial line, a wake-up event.
+    use GenServer
+    def start_link(count), do: GenServer.start_link(__MODULE__, count, name: NestGen2.Backplate)
+    def init(count), do: {:ok, count}
+    def handle_call({:sleep_notice, _, _}, _from, count), do: {:reply, File.write!(count, "42\n"), count}
+    def handle_call(:resumed, _from, count), do: {:reply, :ok, count}
+  end
+
+  test "takes the wake-up count after the base has answered the sleep notice", %{dir: dir} do
+    count = Path.join(dir, "wakeup_count")
+    File.write!(count, "41\n")
+    start_supervised!({ChattyBackplate, count})
+    start_supervised!(Power)
+    wait_until(fn -> read(dir, "state") == {:ok, "mem"} end)
+    assert read(dir, "wakeup_count") == {:ok, "42"}
+  end
+
   test "no suspend if a wake-up event came after the count was read", %{dir: dir} do
     # The kernel refuses the count back when an event has happened since; a
     # directory refuses the write the same way, even for root.
