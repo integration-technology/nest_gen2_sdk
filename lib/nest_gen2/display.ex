@@ -18,6 +18,9 @@ defmodule NestGen2.Display do
   @size 320
   @page_bytes @size * @size * 4
   @max_rects 16
+  # Drawing can take longer than GenServer's 5 s default while the Nest is busy
+  # starting up (seen at load 4); a longer wait beats crashing the app.
+  @timeout 30_000
 
   def width, do: @size
   def height, do: @size
@@ -40,14 +43,14 @@ defmodule NestGen2.Display do
   """
   @spec set_background(Image.t() | Image.color()) :: :ok
   def set_background(%Image{width: @size, height: @size} = image),
-    do: GenServer.call(__MODULE__, {:background, Frame.from_image(image)})
+    do: GenServer.call(__MODULE__, {:background, Frame.from_image(image)}, @timeout)
 
   def set_background(color),
-    do: GenServer.call(__MODULE__, {:background, Frame.disc(Image.color(color))})
+    do: GenServer.call(__MODULE__, {:background, Frame.disc(Image.color(color))}, @timeout)
 
   @doc "Draws an image with its top-left corner at (x, y)."
   @spec put_image(integer, integer, Image.t()) :: :ok
-  def put_image(x, y, %Image{} = image), do: GenServer.call(__MODULE__, {:put, x, y, image})
+  def put_image(x, y, %Image{} = image), do: GenServer.call(__MODULE__, {:put, x, y, image}, @timeout)
 
   @spec fill_rect(integer, integer, pos_integer, pos_integer, Image.color()) :: :ok
   def fill_rect(x, y, w, h, color), do: put_image(x, y, Image.new(w, h, color))
@@ -72,14 +75,14 @@ defmodule NestGen2.Display do
 
   @doc "Shows everything drawn since the last present, in one page flip."
   @spec present() :: :ok
-  def present, do: GenServer.call(__MODULE__, :present)
+  def present, do: GenServer.call(__MODULE__, :present, @timeout)
 
   @doc """
   What the screen shows: the frame as of the last `present/0`, as a 320×320
   image. `NestGen2.Image.to_png/1` turns it into a PNG.
   """
   @spec snapshot() :: Image.t()
-  def snapshot, do: GenServer.call(__MODULE__, :snapshot)
+  def snapshot, do: GenServer.call(__MODULE__, :snapshot, @timeout)
 
   @impl true
   def init(nil) do
