@@ -24,6 +24,7 @@ defmodule NestGen2.PowerDeepSleepTest do
       deep_sleep_awake_ms: 10_000,
       deep_sleep_max_s: 270,
       power_state_path: Path.join(dir, "state"),
+      wakeup_count_path: Path.join(dir, "wakeup_count"),
       rtc_wakealarm_path: Path.join(dir, "wakealarm"),
       backplate_wakeup_path: Path.join(dir, "wakeup")
     ]
@@ -65,6 +66,25 @@ defmodule NestGen2.PowerDeepSleepTest do
     start_supervised!(Power)
     wait_until(fn -> match?({:ok, "0"}, read(dir, "wakealarm")) end)
     assert Power.awake?() == false
+  end
+
+  test "hands the wake-up count back to the kernel before suspending", %{dir: dir} do
+    File.write!(Path.join(dir, "wakeup_count"), "41\n")
+    start_supervised!(Power)
+    wait_until(fn -> read(dir, "state") == {:ok, "mem"} end)
+    assert read(dir, "wakeup_count") == {:ok, "41"}
+  end
+
+  test "no suspend if a wake-up event came after the count was read", %{dir: dir} do
+    # The kernel refuses the count back when an event has happened since; a
+    # read-only file refuses the write the same way.
+    count = Path.join(dir, "wakeup_count")
+    File.write!(count, "41\n")
+    File.chmod!(count, 0o444)
+    start_supervised!(Power)
+    Process.sleep(1_500)
+    assert read(dir, "state") == {:error, :enoent}
+    assert read(dir, "wakealarm") == {:ok, "0"}
   end
 
   test "no deep sleep while a hold keeps the screen on", %{dir: dir} do

@@ -36,7 +36,10 @@ holding it awake) `NestGen2.Power`:
    to wake it (the sleep notice Nest's own software sends; see
    [backplate.md](backplate.md#sleep));
 2. sets the clock chip's alarm and suspends to RAM: the processor, radios and
-   every process stop, with memory kept alive;
+   every process stop, with memory kept alive. It uses the kernel's
+   `wakeup_count` handshake, as Nest's own sleep daemon does, so a press or
+   motion in the moment it is going to sleep cancels the suspend instead of
+   being missed until the alarm;
 3. carries on exactly where it stopped when something wakes it: the button, the
    base (someone moving near it; also its own housekeeping now and then), or
    the alarm after at most 270 seconds;

@@ -3,6 +3,13 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
+## Unreleased
+
+- Deep sleep: **fix** a press or motion in the moment the Nest goes to sleep
+  being missed, so it slept on for up to 270 s. Before suspending, the SDK now
+  uses the kernel's `wakeup_count` handshake (as Nest's own sleep daemon does):
+  any wake-up event after it decided to sleep cancels the suspend.
+
 ## 0.6.1 (2026-10-26)
 
 - Watch-only viewer: `config :nest_gen2, host_viewer_controls: false` shows the screen

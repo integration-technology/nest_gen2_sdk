@@ -156,9 +156,11 @@ defmodule NestGen2.Power do
       when map_size(holds) == 0 do
     seconds = config(:deep_sleep_max_s)
     NestGen2.Trace.write("deep sleep, up to #{seconds} s")
+    # Read before anything else, so a press from here on cancels the suspend.
+    count = NestGen2.Suspend.wakeup_count()
     NestGen2.Backplate.sleep_notice(seconds)
 
-    case NestGen2.Suspend.sleep(seconds) do
+    case NestGen2.Suspend.sleep(seconds, count) do
       {:ok, slept} -> NestGen2.Trace.write("woke after #{slept} s")
       {:error, reason} -> NestGen2.Trace.write("suspend refused: #{inspect(reason)}")
     end

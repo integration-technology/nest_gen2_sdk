@@ -23,6 +23,7 @@ defmodule NestGen2.Config do
     deep_sleep_max_s: 270,
     deep_sleep_awake_ms: 8_000,
     power_state_path: "/sys/power/state",
+    wakeup_count_path: "/sys/power/wakeup_count",
     rtc_wakealarm_path: "/sys/class/rtc/rtc0/wakealarm",
     backplate_wakeup_path: "/sys/devices/platform/omap/omap_uart.2/power/wakeup",
     button_long_press_ms: 800,
