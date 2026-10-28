@@ -83,7 +83,12 @@ being suspended: their state is in memory, unchanged.
 - **The base woke the display every 30 seconds on cold mornings** (wake reason
   `0x0004`). The sleep notice carries a low-temperature threshold, below which
   the base wakes the display to decide about heating; Nest's own value was about
-  16.5 °C. The SDK sends 5 °C (0.5.1).
+  16.5 °C. The SDK sent 5 °C (0.5.1), and now turns the temperature wake off.
+- **In a bright room the base could wake the display straight away.** Before
+  0.6.2 the SDK sent the room temperature where the base expects a light
+  threshold, so above about 2,300 counts of light it was always past it. The
+  thresholds are now set either side of the room's light, and only with
+  `:light` in `wake_sources`.
 - **The base restarted every few minutes.** A loose display on its stand or a
   power blip; the base logs `*HVAC power lost`. Screw the stand's base down; the
   SDK re-wakes the base within seconds anyway (0.2.1).

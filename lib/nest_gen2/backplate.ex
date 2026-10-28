@@ -58,8 +58,10 @@ defmodule NestGen2.Backplate do
   @doc false
   # Tells the base the head is about to suspend for `seconds`, as Nest's
   # client does; the base then stays quiet until then or until it has
-  # something to wake the head for. Call resumed/0 straight after the wake-up.
-  def sleep_notice(seconds), do: call_if_running({:sleep_notice, seconds})
+  # something to wake the head for: of `sources`, someone near (:motion) or a
+  # change in light (:light). Call resumed/0 straight after the wake-up.
+  def sleep_notice(seconds, sources),
+    do: call_if_running({:sleep_notice, seconds, sources})
 
   @doc false
   # After a suspend: the exchange Nest's client opens with on waking (83, a2,
@@ -130,13 +132,14 @@ defmodule NestGen2.Backplate do
   def handle_call({:get, key}, _from, s), do: {:reply, Map.fetch!(s, key), s}
   def handle_call({:put, key, value}, _from, s), do: {:reply, :ok, Map.put(s, key, value)}
 
-  def handle_call({:sleep_notice, seconds}, _from, s) do
-    # The room temperature as the base last gave it, uncorrected, as Nest's
-    # client sends it; 22.71 degC (Nest's value) until a reading has arrived.
-    centi = if s.raw_temperature_c, do: round(s.raw_temperature_c * 100), else: 2271
+  def handle_call({:sleep_notice, seconds, sources}, _from, s) do
     seconds = seconds |> max(1) |> min(0xFFFF)
+    jump = NestGen2.Config.get(:light_wake_jump_pct)
+    min_delta = NestGen2.Config.get(:light_wake_min_delta)
 
-    for {cmd, payload} <- Handshake.sleep_burst(centi, seconds), do: tx(s, cmd, payload)
+    for {cmd, payload} <- Handshake.sleep_burst(s.light, seconds, sources, jump, min_delta),
+        do: tx(s, cmd, payload)
+
     {:reply, :ok, s}
   end
 

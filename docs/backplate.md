@@ -16,7 +16,9 @@ marked with where it comes from:
 
 - **✓ confirmed**: seen on our hardware, and what the SDK relies on;
 - **cuckoo**: reported by cuckoo-nest, not yet confirmed by us;
-- **both**: found independently by both.
+- **both**: found independently by both;
+- **code**: named in the log messages and code of Nest's own software on the
+  display, studied to interoperate with it.
 
 Please read the cuckoo-nest wiki itself for their photos, the US terminal
 details and their investigation notes; see [Credits](#credits).
@@ -107,20 +109,47 @@ How Nest's own software keeps within the backplate's power budget (captured
 2026-10-13, and what `NestGen2.Power`'s deep sleep does) *(✓)*:
 
 1. **Going to sleep**, the display sends: `c2 0000` + a low-temperature
-   threshold (hundredths of °C, u16le) + `0080`, `b5 0f00`,
-   `b3 ffffffff`, `b9 0000` + room temperature (hundredths of °C, u16le),
-   `ba 000000000000`, `a4 e707`, and **`a1` = seconds it intends to sleep**
-   (u16le), then suspends to RAM. Nest's software sent 15.51 °C and 16.48 °C
-   as the `c2` threshold; below it the base wakes the display every 30 s with
-   reason `0x0004` (seen on a cold morning), presumably so a thermostat can
-   decide about heating. The SDK sends 5 °C *(✓)*.
+   threshold (hundredths of °C, u16le) + `0080`, `b5 0f00`, `b3 ffffffff`,
+   **`b9`** = light thresholds, **`ba 000000000000`**, **`a4`** = wake mask, and
+   **`a1` = seconds it intends to sleep** (u16le), then suspends to RAM *(✓)*.
+   - **`a4`, the wake mask** (u16le): which events may wake the display, with
+     the bits in the table below *(code; ✓ for the bits we have seen)*. Nest's
+     software always sets timer, buffers full, temperature, light, humidity,
+     vergence and errors (`0x0567`), and adds motion, battery and proximity
+     according to its settings; ours sent `0x07e7`. The SDK sets the base's
+     own five (timer, buffers full, vergence, battery, errors: `0x0703`), plus
+     near-PIR for `:motion` and light for `:light` in `wake_sources`.
+   - **`b9`, the light thresholds**: u16le low, u16le high, in the same counts
+     as `000a`; the base wakes the display when the light goes below the low
+     one or above the high one, and `ffff` turns the high one off *(code, ✓)*.
+     Nest's software set `0`/`2271` in a dim room (about 300-450 counts) and
+     `1444`/`ffff` in daylight (about 15,000). The SDK sets them
+     `light_wake_jump_pct` (and at least `light_wake_min_delta` counts) either
+     side of the last reading, or off without `:light`.
+   - **`c2`**: Nest's software sent 15.51 °C and 16.48 °C; below it, with the
+     temperature bit in the mask, the base wakes the display every 30 s
+     (reason `0x0004`, seen on a cold morning), presumably so a thermostat can
+     decide about heating. The SDK sends 5 °C and leaves that bit off *(✓)*.
 2. The backplate goes quiet, keeping its readings, until that time is up or it
    has a reason to wake the display (it does so over the serial line).
 3. **Waking**, the display sends `83`; the backplate answers **`0014`**, the wake
-   reason (`0x0080` when someone moved near it; `0x0004` when the temperature is
-   below the `c2` threshold; `0x0001`, `0x0020`, `0x0200` and `0` seen for other
-   reasons), then `a2` brings what it kept while the display slept, and
-   `a3` resumes the readings.
+   reason, with the same bits as the mask (`0` seen too), then `a2` brings what
+   it kept while the display slept, and `a3` resumes the readings.
+
+| Bit | Wake reason | Seen |
+|---|---|---|
+| `0x0001` | Timer | ✓ |
+| `0x0002` | Buffers full | |
+| `0x0004` | Temperature below the `c2` threshold | ✓ |
+| `0x0008` | PIR | |
+| `0x0010` | Proximity | |
+| `0x0020` | Light past a `b9` threshold | ✓ |
+| `0x0040` | Humidity | |
+| `0x0080` | Near PIR: someone moved near it (Nest's software also checks a "TP" reason on this bit) | ✓ |
+| `0x0100` | "Vergence" | |
+| `0x0200` | Battery | ✓ |
+| `0x0400` | Errors | |
+| `0x0800` | "HE" | |
 
 On a desk stand, with the display awake all the time the battery fell about
 70 mV an hour; sleeping like this, it rose about 290 mV an hour.
@@ -141,7 +170,7 @@ On a desk stand, with the display awake all the time the battery fell about
 | `000b` | Backplate state | bytes 6-7 input mV (0 when unpowered), 12-13 battery mV | ✓ (cuckoo: 8-9 Vin/100, 10-11 Vop/1000, 12-13 Vbat/1000) |
 | `000c` | Raw sensor ADC | 0-1 PIR raw, 10-11 ambient IR, 12-13 ambient visible | cuckoo |
 | `0010` | TFE id | 3 bytes | both |
-| `0014` | Wake reason | u16le flags, `0x0080` = motion, `0x0004` = below the low-temperature threshold | ✓ |
+| `0014` | Wake reason | u16le flags, as the wake mask (see Sleep) | ✓, code |
 | `0018` | Firmware version | ASCII | both |
 | `0019` | Build info | ASCII | both |
 | `001b` | Hardware version | ASCII | ✓ |
@@ -170,7 +199,9 @@ On a desk stand, with the display awake all the time the battery fell about
 | `00a1` | Sleep for (part of the sleep notice) | u16le seconds | ✓ |
 | `00a2` / `00a3` | Request buffers / acknowledge their end | | both |
 | `00c2` | Sleep notice: low-temperature threshold | `0000`, u16le 1/100 °C, `0080` | ✓ |
-| `00a4`, `00b3`, `00b5`, `00b9`, `00ba` | Sleep notice (see Sleep) | | ✓ |
+| `00a4` | Wake mask | u16le bits (see Sleep) | ✓, code |
+| `00b9` | Light thresholds | u16le low, u16le high (`ffff` = off) | ✓, code |
+| `00b3`, `00b5`, `00ba` | Sleep notice (see Sleep) | | ✓ |
 | `00b1` | Temperature lock | | cuckoo |
 | `00c0` | Set power steal mode | `00000000` | both |
 | `00ff` | Reset | | both |

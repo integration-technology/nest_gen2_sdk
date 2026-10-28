@@ -9,6 +9,18 @@ while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
   being missed, so it slept on for up to 270 s. Before suspending, the SDK now
   uses the kernel's `wakeup_count` handshake (as Nest's own sleep daemon does):
   any wake-up event after it decided to sleep cancels the suspend.
+- Deep sleep: **fix** the light thresholds in the sleep notice (`b9`). The SDK
+  sent the room temperature there, which the base takes as "wake the display
+  when the light goes above this", so in a bright room it could wake straight
+  away. They are now set `light_wake_jump_pct` (at least
+  `light_wake_min_delta` counts) either side of the room's light, and off
+  without `:light` in `wake_sources`.
+- Deep sleep: the base's wake mask (`a4`) follows `wake_sources`: someone near
+  wakes the display only with `:motion`, a change in light only with `:light`.
+  The temperature and humidity wakes are off, so the base no longer wakes the
+  display every 30 s on cold mornings at all.
+- `docs/backplate.md`: the wake mask and wake reason bits, and the light
+  thresholds, named from Nest's own software.
 
 ## 0.6.1 (2026-10-26)
 

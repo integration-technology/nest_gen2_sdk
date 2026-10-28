@@ -46,15 +46,40 @@ defmodule NestGen2.Backplate.HandshakeTest do
     refute Backplate.restart_chatter?("*something new")
   end
 
-  test "the sleep notice carries the temperature and the seconds, as Nest's does" do
-    burst = Handshake.sleep_burst(2271, 0x0121, 0x0670)
-    assert {0xC2, <<0x00, 0x00, 0x70, 0x06, 0x00, 0x80>>} in burst
-    # By default the low-temperature threshold is 5 degC, not Nest's 16.48.
-    assert {0xC2, <<0x00, 0x00, 0xF4, 0x01, 0x00, 0x80>>} in Handshake.sleep_burst(2271, 60)
-    assert Enum.map(burst, &elem(&1, 0)) == [0xC2, 0xB5, 0xB3, 0xB9, 0xBA, 0xA4, 0xA1]
-    # Byte for byte what Nest's client sent before its 277 s sleep.
-    assert {0xB9, <<0x00, 0x00, 0xDF, 0x08>>} in burst
-    assert {0xA1, <<0x21, 0x01>>} in burst
+  describe "the sleep notice" do
+    defp burst(light, sources), do: Handshake.sleep_burst(light, 0x0121, sources, 40, 200)
+    defp field(burst, cmd), do: burst |> List.keyfind!(cmd, 0) |> elem(1)
+
+    test "has Nest's messages in Nest's order, with the seconds" do
+      b = burst(400, [:motion, :light])
+      assert Enum.map(b, &elem(&1, 0)) == [0xC2, 0xB5, 0xB3, 0xB9, 0xBA, 0xA4, 0xA1]
+      assert field(b, 0xA1) == <<0x21, 0x01>>
+      # The low-temperature threshold is 5 degC, not Nest's 16.48.
+      assert field(b, 0xC2) == <<0x00, 0x00, 0xF4, 0x01, 0x00, 0x80>>
+    end
+
+    test "wakes for the base's own reasons, plus motion and light only if asked" do
+      # Timer, buffers full, vergence, battery, errors; never temperature (0x4)
+      # or humidity (0x40).
+      assert field(burst(400, []), 0xA4) == <<0x03, 0x07>>
+      assert field(burst(400, [:motion]), 0xA4) == <<0x83, 0x07>>
+      assert field(burst(400, [:light]), 0xA4) == <<0x23, 0x07>>
+      assert field(burst(400, [:dial, :button, :motion, :light]), 0xA4) == <<0xA3, 0x07>>
+    end
+
+    test "light thresholds either side of the last reading" do
+      # 40 % of 400 is less than the 200-count minimum.
+      assert field(burst(400, [:light]), 0xB9) == <<200::16-little, 600::16-little>>
+      assert field(burst(15_000, [:light]), 0xB9) == <<9_000::16-little, 21_000::16-little>>
+      assert field(burst(100, [:light]), 0xB9) == <<0::16-little, 300::16-little>>
+      assert field(burst(65_000, [:light]), 0xB9) == <<39_000::16-little, 0xFFFE::16-little>>
+    end
+
+    test "light thresholds off without :light, or before any reading" do
+      off = <<0::16, 0xFF, 0xFF>>
+      assert field(burst(400, [:motion]), 0xB9) == off
+      assert field(burst(nil, [:light]), 0xB9) == off
+    end
   end
 
   test "decodes the base's wake reason" do
