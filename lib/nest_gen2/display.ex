@@ -188,7 +188,7 @@ defmodule NestGen2.Display do
 
   defp write_chunks(fb, off, data) do
     n = min(4096, byte_size(data))
-    <<chunk::binary-size(n), rest::binary>> = data
+    {chunk, rest} = :erlang.split_binary(data, n)
     :ok = :file.pwrite(fb, off, chunk)
     write_chunks(fb, off + n, rest)
   end

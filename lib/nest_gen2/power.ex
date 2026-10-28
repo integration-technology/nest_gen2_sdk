@@ -154,10 +154,21 @@ defmodule NestGen2.Power do
 
   def handle_info(:deep_sleep, %{deep_sleep: true, awake: false, holds: holds} = s)
       when map_size(holds) == 0 do
-    seconds = config(:deep_sleep_max_s)
-    NestGen2.Trace.write("deep sleep, up to #{seconds} s")
     # Read before anything else, so a press from here on cancels the suspend.
     count = NestGen2.Suspend.wakeup_count()
+
+    # A press the kernel counted before that read may already be queued here,
+    # behind this message: handle it first, and sleep later.
+    if elem(Process.info(self(), :message_queue_len), 1) > 0,
+      do: {:noreply, schedule_deep(%{s | deep_timer: nil}, config(:deep_sleep_after_ms))},
+      else: deep_sleep(s, count)
+  end
+
+  def handle_info(:deep_sleep, s), do: {:noreply, %{s | deep_timer: nil}}
+
+  defp deep_sleep(s, count) do
+    seconds = config(:deep_sleep_max_s)
+    NestGen2.Trace.write("deep sleep, up to #{seconds} s")
     NestGen2.Backplate.sleep_notice(seconds, s.sources)
 
     case NestGen2.Suspend.sleep(seconds, count) do
@@ -170,8 +181,6 @@ defmodule NestGen2.Power do
     # source, wakes the screen and cancels this; otherwise sleep again soon.
     {:noreply, schedule_deep(%{s | deep_timer: nil}, config(:deep_sleep_awake_ms))}
   end
-
-  def handle_info(:deep_sleep, s), do: {:noreply, %{s | deep_timer: nil}}
 
   defp handle_activity(source, s) do
     unless s.awake, do: NestGen2.Trace.write("wake by #{inspect(source)}")
