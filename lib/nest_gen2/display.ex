@@ -50,7 +50,8 @@ defmodule NestGen2.Display do
 
   @doc "Draws an image with its top-left corner at (x, y)."
   @spec put_image(integer, integer, Image.t()) :: :ok
-  def put_image(x, y, %Image{} = image), do: GenServer.call(__MODULE__, {:put, x, y, image}, @timeout)
+  def put_image(x, y, %Image{} = image),
+    do: GenServer.call(__MODULE__, {:put, x, y, image}, @timeout)
 
   @spec fill_rect(integer, integer, pos_integer, pos_integer, Image.color()) :: :ok
   def fill_rect(x, y, w, h, color), do: put_image(x, y, Image.new(w, h, color))

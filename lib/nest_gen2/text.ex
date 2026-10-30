@@ -17,7 +17,11 @@ defmodule NestGen2.Text do
   alias NestGen2.Image
 
   @fonts %{bold: "AkkuratNest-Bold.ttf", regular: "AkkuratNest-Regular.ttf"}
-  @timeout 5000
+  # A busy Nest (seen at load 4) can take over 5 s to render: wait for the
+  # renderer, and give the caller longer still, so a slow render is an
+  # {:error, :timeout} rather than a crash in the app.
+  @render_ms 20_000
+  @timeout 30_000
 
   def start_link(_), do: GenServer.start_link(__MODULE__, nil, name: __MODULE__)
 
@@ -48,7 +52,10 @@ defmodule NestGen2.Text do
       {^port, {:exit_status, _}} ->
         {:reply, {:error, :renderer_exited}, open()}
     after
-      @timeout -> {:reply, {:error, :timeout}, port}
+      # A fresh renderer, so this text's late reply can't answer the next call.
+      @render_ms ->
+        Port.close(port)
+        {:reply, {:error, :timeout}, open()}
     end
   end
 
