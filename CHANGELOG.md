@@ -3,13 +3,12 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
-## Unreleased
+## 0.6.5 (2026-10-30)
 
 - Deep sleep: **fix** the Nest staying awake for good after one refused
   suspend. The SDK's own once-a-second idle check fell into step with the 8 s
   retry and was always waiting when the SDK looked for anything to handle
   first, so it refused every attempt. That check no longer counts.
-
 - `NestGen2.Display` and `NestGen2.Text`: **fix** apps crashing when drawing
   or rendering text took more than 5 s while the Nest was busy. Display calls
   now wait up to 30 s; a render that takes over 20 s returns
@@ -17,8 +16,10 @@ while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
   taken for the next text's.
 - `examples/sdk_test`: an app that shows every event the SDK sends, for
   checking a Nest and an SDK build.
+- `deploy_app.sh` stops when it can't reach the Nest (for example while it is
+  in deep sleep) instead of carrying on as if no SDK were installed.
 
-## 0.6.4 (2026-10-28)
+## 0.6.4 (2026-10-28) — use 0.6.5: can stay awake for good after one refused suspend
 
 - Deep sleep: **fix** 0.6.2 and 0.6.3 never suspending, so the Nest drained
   its battery on its base until it restarted. Every message from the base is a
@@ -26,6 +27,8 @@ while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
   taken before the notice was always out of date and the kernel refused every
   suspend. The SDK now takes the count 250 ms after the notice, once the base
   has gone quiet, as Nest's own sleep daemon does.
+- The Hex package also has the `NestGen2.Display` 30 s call timeout listed
+  under 0.6.5.
 
 ## 0.6.3 (2026-10-28) — use 0.6.4: never suspends on the Nest
 
