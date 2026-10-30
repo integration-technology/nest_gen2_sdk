@@ -67,6 +67,8 @@ fi
 MIX_ENV=prod mix compile
 
 vsn() { sed -n 's/.*{vsn,"\([^"]*\)"}.*/\1/p' "$1" | head -1; }
+# Asleep (deep sleep) or off the network: otherwise it would look like no SDK.
+nest true || { echo "!! can't reach the Nest at $NEST_HOST (asleep? press it to wake it)"; exit 1; }
 BUILT_SDK=$(vsn "_build/prod/lib/$SDK_APP/ebin/$SDK_APP.app")
 DEVICE_SDK=$(nest "sed -n 's/.*{vsn,\"\\([^\"]*\\)\"}.*/\\1/p' $BASE/apps/$SDK_APP/ebin/$SDK_APP.app" | head -1)
 echo "== SDK: built against $BUILT_SDK, installed on the Nest ${DEVICE_SDK:-(none)}"
@@ -100,8 +102,8 @@ echo "== restarting $APP"
 # app_watchdog.sh relaunches it within 5 s with a new pid and a fresh log.
 # SIGTERM asks the VM to stop cleanly; if it hasn't within 15 s, SIGKILL.
 nest "OLD=\$(cat $BASE/$APP.pid 2>/dev/null); [ -n \"\$OLD\" ] && kill \$OLD 2>/dev/null
-for i in \$(seq 15); do [ -d /proc/\$OLD ] || break; sleep 1; done
-[ -d /proc/\$OLD ] && { echo '   (no clean stop after 15 s: SIGKILL)'; kill -9 \$OLD; }
+for i in \$(seq 15); do [ -n \"\$OLD\" ] && [ -d /proc/\$OLD ] || break; sleep 1; done
+[ -n \"\$OLD\" ] && [ -d /proc/\$OLD ] && { echo '   (no clean stop after 15 s: SIGKILL)'; kill -9 \$OLD; }
 for i in \$(seq 60); do
   sleep 1; NEW=\$(cat $BASE/$APP.pid 2>/dev/null)
   [ -n \"\$NEW\" ] && [ \"\$NEW\" != \"\$OLD\" ] && [ -d /proc/\$NEW ] && break
