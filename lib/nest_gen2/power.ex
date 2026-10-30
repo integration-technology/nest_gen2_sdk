@@ -166,9 +166,13 @@ defmodule NestGen2.Power do
     count = NestGen2.Suspend.wakeup_count()
 
     # A press the kernel counted before that read may already be queued here,
-    # behind this message: handle it first, and sleep later.
+    # behind this message: handle it first, and sleep later. Not our own
+    # :tick, which falls into step with the 8 s retry and would refuse every
+    # attempt from then on.
+    {:messages, queued} = Process.info(self(), :messages)
+
     result =
-      if elem(Process.info(self(), :message_queue_len), 1) > 0,
+      if Enum.any?(queued, &(&1 != :tick)),
         do: {:error, :message_queued},
         else: NestGen2.Suspend.sleep(seconds, count)
 

@@ -80,7 +80,10 @@ defmodule NestGen2.PowerDeepSleepTest do
     use GenServer
     def start_link(count), do: GenServer.start_link(__MODULE__, count, name: NestGen2.Backplate)
     def init(count), do: {:ok, count}
-    def handle_call({:sleep_notice, _, _}, _from, count), do: {:reply, File.write!(count, "42\n"), count}
+
+    def handle_call({:sleep_notice, _, _}, _from, count),
+      do: {:reply, File.write!(count, "42\n"), count}
+
     def handle_call(:resumed, _from, count), do: {:reply, :ok, count}
   end
 
@@ -112,6 +115,17 @@ defmodule NestGen2.PowerDeepSleepTest do
     :sys.resume(Power)
     assert Power.awake?()
     assert read(dir, "state") == {:error, :enoent}
+  end
+
+  test "its own idle tick queued at that moment doesn't stop the suspend", %{dir: dir} do
+    start_supervised!(Power)
+    wait_until(fn -> Power.awake?() == false end)
+    # Hold Power while its deep sleep timer fires, then queue a tick behind it.
+    :sys.suspend(Power)
+    Process.sleep(100)
+    send(Power, :tick)
+    :sys.resume(Power)
+    wait_until(fn -> read(dir, "state") == {:ok, "mem"} end)
   end
 
   test "no deep sleep while a hold keeps the screen on", %{dir: dir} do
