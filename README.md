@@ -26,7 +26,7 @@ end
 
 **Setting up a Nest:** [docs/install.md](docs/install.md) goes from a 2nd-gen
 Nest thermostat to the example app running on it, then to your own app
-(starting from [`examples/hello_nest`](examples/hello_nest)). `platform/install.sh`
+(starting from [`examples/hello_nest`](https://github.com/integration-technology/nest_gen2_sdk/tree/main/examples/hello_nest)). `platform/install.sh`
 does the device side; [`platform/README.md`](platform/README.md) explains it.
 
 **Battery and sleep:** on its base or stand the Nest gets only about 120 mA, so an
@@ -141,7 +141,7 @@ This work stands on the shoulders of the Nest right-to-repair community:
 
 ## Licence
 
-GPL-3.0-only; see [LICENSE](LICENSE). If you distribute an app built on this
+GPL-3.0-only; see [LICENSE](https://github.com/integration-technology/nest_gen2_sdk/blob/main/LICENSE). If you distribute an app built on this
 SDK, the app must be released under a GPL-compatible licence too.
 
 Nest's Akkurat fonts (`/nestlabs/share/fonts`) are commercially licensed and are

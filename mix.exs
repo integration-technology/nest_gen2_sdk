@@ -18,7 +18,8 @@ defmodule NestGen2.MixProject do
           "rooted with No Longer Evil: round display, dial and press, piezo, motion, light " <>
           "and climate sensors, Wi-Fi setup, and scripts to install it and deploy apps.",
       package: package(),
-      source_url: @source_url
+      source_url: @source_url,
+      docs: docs()
     ]
   end
 
@@ -31,7 +32,18 @@ defmodule NestGen2.MixProject do
   end
 
   defp deps do
-    []
+    [{:ex_doc, "~> 0.34", only: :dev, runtime: false}]
+  end
+
+  defp docs do
+    [
+      main: "readme",
+      source_ref: "v#{@version}",
+      extras: ~w(README.md docs/install.md docs/api.md docs/power.md docs/host.md
+                 docs/backplate.md CHANGELOG.md),
+      # They name internal modules, which are left out of the docs.
+      skip_undefined_reference_warnings_on: ~w(docs/backplate.md CHANGELOG.md)
+    ]
   end
 
   defp package do

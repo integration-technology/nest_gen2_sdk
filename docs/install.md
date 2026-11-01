@@ -190,7 +190,7 @@ which is where `deploy_app.sh` finds them.
 
 ## 7. Your own app
 
-[`examples/hello_nest`](../examples/hello_nest) is the smallest useful app: a
+[`examples/hello_nest`](https://github.com/integration-technology/nest_gen2_sdk/tree/main/examples/hello_nest) is the smallest useful app: a
 number you change with the ring, reset with a press, and the room temperature.
 Copy it, make it yours, and switch the Nest over to it:
 

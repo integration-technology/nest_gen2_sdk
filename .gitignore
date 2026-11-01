@@ -3,6 +3,7 @@ priv/*.tmp
 *.beam
 erl_crash.dump
 _build/
+doc/
 deps/
 
 # Never commit: Nest's Akkurat fonts are commercially licensed (Lineto), and
