@@ -17,17 +17,15 @@ defmodule NestGen2.Text do
   alias NestGen2.Image
 
   @fonts %{bold: "AkkuratNest-Bold.ttf", regular: "AkkuratNest-Regular.ttf"}
-  # A busy Nest (seen at load 4) can take over 5 s to render: wait for the
-  # renderer, and give the caller longer still, so a slow render is an
-  # {:error, :timeout} rather than a crash in the app.
-  @render_ms 20_000
-  @timeout 30_000
 
   def start_link(_), do: GenServer.start_link(__MODULE__, nil, name: __MODULE__)
 
   @doc "Renders text to an image the exact size of the text."
   @spec render(String.t(), keyword) :: {:ok, Image.t()} | {:error, term}
-  def render(text, opts \\ []), do: GenServer.call(__MODULE__, {:render, text, opts}, @timeout)
+  # No caller timeout: the server replies within `text_render_ms` per render,
+  # and a caller queued behind a slow render must wait its turn, not crash.
+  def render(text, opts \\ []),
+    do: GenServer.call(__MODULE__, {:render, text, opts}, :infinity)
 
   @doc "Width and height the text would render at."
   @spec measure(String.t(), keyword) :: {:ok, {pos_integer, pos_integer}} | {:error, term}
@@ -53,7 +51,7 @@ defmodule NestGen2.Text do
         {:reply, {:error, :renderer_exited}, open()}
     after
       # A fresh renderer, so this text's late reply can't answer the next call.
-      @render_ms ->
+      NestGen2.Config.get(:text_render_ms) ->
         Port.close(port)
         {:reply, {:error, :timeout}, open()}
     end

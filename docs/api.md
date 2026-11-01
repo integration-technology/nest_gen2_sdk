@@ -288,6 +288,7 @@ config :nest_gen2,
   dial_step_degrees: 10,
   click_on_step: true,
   temperature_offset_c: -3.7,
+  text_render_ms: 20_000,       # a render taking longer returns {:error, :timeout}
   time_servers: ["time.nest.com", "pool.ntp.org", :gateway],
   clock_sync_interval_ms: 3_600_000,
   clock_step_ms: 500

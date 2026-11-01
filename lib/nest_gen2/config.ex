@@ -29,6 +29,8 @@ defmodule NestGen2.Config do
     button_long_press_ms: 800,
     temperature_offset_c: -3.7,
     backlight_level: 113,
+    # A busy Nest (seen at load 4) can take over 5 s to render text.
+    text_render_ms: 20_000,
     fade_rise_ms: 260,
     fade_fall_ms: 2000,
     refresh_interval_ms: 10_000,

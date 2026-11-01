@@ -3,6 +3,13 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
+## 0.6.6 (2026-11-01)
+
+- `NestGen2.Text`: **fix** an app crashing when it rendered text while another
+  process's render was slow. A caller now waits its turn instead of giving up
+  after 30 s; each render still stops at 20 s with `{:error, :timeout}`, now
+  set by `text_render_ms`.
+
 ## 0.6.5 (2026-10-30)
 
 - Deep sleep: **fix** the Nest staying awake for good after one refused
