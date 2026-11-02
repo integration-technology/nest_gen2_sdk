@@ -103,7 +103,11 @@ defmodule NestGen2.Power do
   def handle_call(:wake, _from, s), do: {:reply, :ok, activity(s)}
   def handle_call(:sleep, _from, s), do: {:reply, :ok, go_to_sleep(s)}
   def handle_call(:awake?, _from, s), do: {:reply, s.awake, s}
-  def handle_call({:timeout, ms}, _from, s), do: {:reply, :ok, %{s | timeout: ms}}
+
+  def handle_call({:timeout, ms}, _from, s) do
+    keep(:idle_timeout_ms, ms)
+    {:reply, :ok, %{s | timeout: ms}}
+  end
 
   def handle_call({:keep_awake, reason}, {owner, _}, s) do
     monitor = Process.monitor(owner)
@@ -121,6 +125,7 @@ defmodule NestGen2.Power do
   end
 
   def handle_call({:deep_sleep, on?}, _from, s) do
+    keep(:deep_sleep, on?)
     s = %{cancel_deep(s) | deep_sleep: on?}
     s = if on? and not s.awake, do: schedule_deep(s, config(:deep_sleep_after_ms)), else: s
     {:reply, :ok, s}
@@ -128,6 +133,7 @@ defmodule NestGen2.Power do
 
   def handle_call({:sources, sources}, _from, s) do
     true = Enum.all?(sources, &(&1 in @sources))
+    keep(:wake_sources, sources)
     NestGen2.unsubscribe(s.sources)
     NestGen2.subscribe(sources)
     {:reply, :ok, %{s | sources: sources}}
@@ -157,24 +163,7 @@ defmodule NestGen2.Power do
       when map_size(holds) == 0 do
     seconds = config(:deep_sleep_max_s)
     NestGen2.Trace.write("deep sleep, up to #{seconds} s")
-    NestGen2.Backplate.sleep_notice(seconds, s.sources)
-
-    # Every message from the base is a wake-up event (its serial line wakes
-    # us), and it answers the notice: take the count once it has gone quiet,
-    # as Nest's sleep daemon does, or the kernel refuses every suspend.
-    Process.sleep(@base_quiet_ms)
-    count = NestGen2.Suspend.wakeup_count()
-
-    # A press the kernel counted before that read may already be queued here,
-    # behind this message: handle it first, and sleep later. Not our own
-    # :tick, which falls into step with the 8 s retry and would refuse every
-    # attempt from then on.
-    {:messages, queued} = Process.info(self(), :messages)
-
-    result =
-      if Enum.any?(queued, &(&1 != :tick)),
-        do: {:error, :message_queued},
-        else: NestGen2.Suspend.sleep(seconds, count)
+    result = suspend(seconds, NestGen2.Backplate.sleep_notice(seconds, s.sources))
 
     case result do
       {:ok, slept} -> NestGen2.Trace.write("woke after #{slept} s")
@@ -188,6 +177,28 @@ defmodule NestGen2.Power do
   end
 
   def handle_info(:deep_sleep, s), do: {:noreply, %{s | deep_timer: nil}}
+
+  # A base that didn't take the notice wouldn't know to wake us: try again
+  # at the next retry instead.
+  defp suspend(_seconds, {:error, _} = error), do: error
+
+  defp suspend(seconds, :ok) do
+    # Every message from the base is a wake-up event (its serial line wakes
+    # us), and it answers the notice: take the count once it has gone quiet,
+    # as Nest's sleep daemon does, or the kernel refuses every suspend.
+    Process.sleep(@base_quiet_ms)
+    count = NestGen2.Suspend.wakeup_count()
+
+    # A press the kernel counted before that read may already be queued here,
+    # behind this message: handle it first, and sleep later. Not our own
+    # :tick, which falls into step with the 8 s retry and would refuse every
+    # attempt from then on.
+    {:messages, queued} = Process.info(self(), :messages)
+
+    if Enum.any?(queued, &(&1 != :tick)),
+      do: {:error, :message_queued},
+      else: NestGen2.Suspend.sleep(seconds, count)
+  end
 
   defp handle_activity(source, s) do
     unless s.awake, do: NestGen2.Trace.write("wake by #{inspect(source)}")
@@ -251,6 +262,10 @@ defmodule NestGen2.Power do
   end
 
   defp config(key), do: NestGen2.Config.get(key)
+
+  # Kept as config, which init reads: if Power restarts after a crash, it
+  # carries on with the app's choices, not the defaults (deep sleep off).
+  defp keep(key, value), do: Application.put_env(:nest_gen2, key, value)
 
   defp now, do: System.monotonic_time(:millisecond)
 end

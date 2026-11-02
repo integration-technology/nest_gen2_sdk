@@ -27,6 +27,10 @@ defmodule NestGen2.Config do
     rtc_wakealarm_path: "/sys/class/rtc/rtc0/wakealarm",
     backplate_wakeup_path: "/sys/devices/platform/omap/omap_uart.2/power/wakeup",
     button_long_press_ms: 800,
+    battery_shutdown_mv: 3400,
+    battery_adc_path: "/sys/class/hwmon/hwmon0/device/in0_battery_type",
+    usb_vbus_path: "/sys/devices/platform/musb-omap2430.0/musb-hdrc.0/vbus",
+    poweroff_cmd: "/sbin/poweroff",
     temperature_offset_c: -3.7,
     backlight_level: 113,
     # A busy Nest (seen at load 4) can take over 5 s to render text.

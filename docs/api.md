@@ -167,6 +167,7 @@ hold) never deep-sleeps.
 | `deep_sleep_after_ms` | 10_000 | after the screen sleeps |
 | `deep_sleep_max_s` | 270 | longest sleep before waking to talk to the base |
 | `deep_sleep_awake_ms` | 8_000 | awake time after a wake that doesn't light the screen |
+| `battery_shutdown_mv` | 3400 | power off below this for 30 s, unless on USB (`nil`: never); see `docs/power.md` |
 
 ## Backplate
 

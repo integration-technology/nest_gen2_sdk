@@ -84,7 +84,7 @@ defmodule NestGen2.PowerDeepSleepTest do
     def handle_call({:sleep_notice, _, _}, _from, count),
       do: {:reply, File.write!(count, "42\n"), count}
 
-    def handle_call(:resumed, _from, count), do: {:reply, :ok, count}
+    def handle_cast(:resumed, count), do: {:noreply, count}
   end
 
   test "takes the wake-up count after the base has answered the sleep notice", %{dir: dir} do
@@ -125,6 +125,39 @@ defmodule NestGen2.PowerDeepSleepTest do
     Process.sleep(100)
     send(Power, :tick)
     :sys.resume(Power)
+    wait_until(fn -> read(dir, "state") == {:ok, "mem"} end)
+  end
+
+  defmodule StuckBackplate do
+    # A base too busy to answer the sleep notice within GenServer's 5 s.
+    use GenServer
+    def start_link(_), do: GenServer.start_link(__MODULE__, nil, name: NestGen2.Backplate)
+    def init(nil), do: {:ok, nil}
+    def handle_call({:sleep_notice, _, _}, _from, s), do: Process.sleep(6_000) && {:reply, :ok, s}
+    def handle_cast(:resumed, s), do: {:noreply, s}
+  end
+
+  @tag timeout: 20_000
+  test "a base too busy to take the sleep notice skips that suspend, without a crash", %{
+    dir: dir
+  } do
+    start_supervised!(StuckBackplate)
+    power = start_supervised!(Power)
+    wait_until(fn -> Power.awake?() == false end)
+    Process.sleep(5_500)
+    assert Process.whereis(Power) == power
+    assert read(dir, "state") == {:error, :enoent}
+  end
+
+  test "a restarted Power keeps the app's settings, not the defaults", %{dir: dir} do
+    Application.put_env(:nest_gen2, :deep_sleep, false)
+    old = start_supervised!(Power)
+    :ok = Power.set_deep_sleep(true)
+    wait_until(fn -> read(dir, "state") == {:ok, "mem"} end)
+    File.rm!(Path.join(dir, "state"))
+
+    Process.exit(old, :kill)
+    wait_until(fn -> Process.whereis(Power) not in [nil, old] end)
     wait_until(fn -> read(dir, "state") == {:ok, "mem"} end)
   end
 

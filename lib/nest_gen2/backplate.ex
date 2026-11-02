@@ -66,10 +66,15 @@ defmodule NestGen2.Backplate do
   @doc false
   # After a suspend: the exchange Nest's client opens with on waking (83, a2,
   # a3), after which the base sends what it kept and resumes its readings.
-  def resumed, do: call_if_running(:resumed)
+  # A cast: Power mustn't crash waiting on a busy base just after waking.
+  def resumed, do: GenServer.cast(__MODULE__, :resumed)
 
+  # Not running (on a computer, in tests) is :ok; a base too busy to answer
+  # in 5 s is an error for the caller to handle, not a crash.
   defp call_if_running(msg) do
     if Process.whereis(__MODULE__), do: GenServer.call(__MODULE__, msg), else: :ok
+  catch
+    :exit, reason -> {:error, {:backplate, reason}}
   end
 
   @doc false
@@ -146,15 +151,15 @@ defmodule NestGen2.Backplate do
   def handle_call({:host_climate, temperature_c, humidity_pct}, _from, s),
     do: {:reply, :ok, host_climate(s, {temperature_c, humidity_pct})}
 
-  def handle_call(:resumed, _from, s) do
+  @impl true
+  def handle_cast(:resumed, s) do
     tx(s, 0x83)
     Process.send_after(self(), :a2, 200)
     # Readings from before the sleep mustn't look like a sudden change in
     # light, and the quiet spell mustn't look like a silent base.
-    {:reply, :ok, %{s | last_rx: now(), light_window: []}}
+    {:noreply, %{s | last_rx: now(), light_window: []}}
   end
 
-  @impl true
   def handle_cast({:send, cmd, payload}, s) do
     tx(s, cmd, payload)
     {:noreply, s}

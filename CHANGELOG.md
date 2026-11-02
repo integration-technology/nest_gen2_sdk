@@ -3,6 +3,21 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
+## 0.6.7 (2026-11-02)
+
+- Deep sleep: **fix** a crash in `NestGen2.Power` turning deep sleep off for
+  good, so the Nest drained its battery on the base overnight. When the base
+  was too busy to answer within 5 s around a suspend, Power crashed; restarted,
+  it went back to the defaults (deep sleep off) instead of the app's settings.
+  Power no longer waits on the base after waking, skips a suspend the base
+  didn't take notice of, and `set_deep_sleep/1`, `set_idle_timeout/1` and
+  `set_wake_sources/1` now survive a restart of Power. (Holds from
+  `keep_awake/1` still don't.)
+- `NestGen2.BatteryGuard`: **new**. Powers the Nest off once its battery has
+  read below 3.4 V for 30 s and it isn't on USB, as Nest's own firmware does,
+  instead of letting it brown out and reboot over and over on a flat battery.
+  Config `battery_shutdown_mv` (`nil` turns it off).
+
 ## 0.6.6 (2026-11-01)
 
 - `NestGen2.Text`: **fix** an app crashing when it rendered text while another

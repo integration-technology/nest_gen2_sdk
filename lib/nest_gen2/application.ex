@@ -18,7 +18,8 @@ defmodule NestGen2.Application do
         NestGen2.Backplate,
         NestGen2.Dial,
         NestGen2.Gesture,
-        NestGen2.Power
+        NestGen2.Power,
+        NestGen2.BatteryGuard
       ] ++ host_viewer()
 
     Supervisor.start_link(children, strategy: :one_for_one, name: NestGen2.Supervisor)

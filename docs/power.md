@@ -71,6 +71,19 @@ being suspended: their state is in memory, unchanged.
    while nobody is looking will happen late. (Waking at a chosen time for an app
    is a planned addition.)
 
+## When the battery runs low anyway
+
+If the Nest can't charge, for example with deep sleep off, it runs its battery
+down until it browns out and reboots, over and over, well below the voltage
+that harms a lithium cell. `NestGen2.BatteryGuard` stops that the way Nest's
+own firmware does: once the head unit's battery has read below 3.4 V for 30 s,
+and USB power isn't connected, it logs why and powers the Nest off. Powered
+off, it draws next to nothing; charge it over USB and it comes back.
+
+`NestGen2.BatteryGuard.millivolts/0` gives the same reading, from the head
+unit's own sensor, so it works on or off the base. Config
+`battery_shutdown_mv` sets the level; `nil` turns the guard off.
+
 ## Things that looked like power problems and weren't
 
 - **The screen went dark after 10 minutes and only a press brought it back.**
