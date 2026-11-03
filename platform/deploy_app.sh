@@ -19,9 +19,8 @@
 #
 # Steps: mix test, prod build, check the app was built against the SDK version
 # installed on the Nest (or install it), upload <app> and its other deps to
-# <install>/apps,
-# sync the flash, restart the app (app_watchdog.sh relaunches it) and show the
-# first lines of its log.
+# <install>/apps.new, sync the flash, move them into <install>/apps, restart the
+# app (app_watchdog.sh relaunches it) and show the first lines of its log.
 set -e
 
 APP_DIR=${1:?usage: deploy_app.sh <app_dir> [--no-test] [--sdk]}
@@ -64,12 +63,15 @@ echo "== $APP ($REV)"
 if [ "$RUN_TESTS" = yes ]; then
   mix test
 fi
-MIX_ENV=prod mix compile
+# Its own build folder: a build someone runs in the app meanwhile can't change
+# the files as they are packed.
+MIX_ENV=prod MIX_BUILD_ROOT=_build/deploy mix compile
+BUILD=_build/deploy/prod
 
 vsn() { sed -n 's/.*{vsn,"\([^"]*\)"}.*/\1/p' "$1" | head -1; }
 # Asleep (deep sleep) or off the network: otherwise it would look like no SDK.
 nest true || { echo "!! can't reach the Nest at $NEST_HOST (asleep? press it to wake it)"; exit 1; }
-BUILT_SDK=$(vsn "_build/prod/lib/$SDK_APP/ebin/$SDK_APP.app")
+BUILT_SDK=$(vsn "$BUILD/lib/$SDK_APP/ebin/$SDK_APP.app")
 DEVICE_SDK=$(nest "sed -n 's/.*{vsn,\"\\([^\"]*\\)\"}.*/\\1/p' $BASE/apps/$SDK_APP/ebin/$SDK_APP.app" | head -1)
 echo "== SDK: built against $BUILT_SDK, installed on the Nest ${DEVICE_SDK:-(none)}"
 if [ -z "$DEVICE_SDK" ]; then
@@ -84,7 +86,7 @@ fi
 # rather than symlinked.
 LIBS=""
 NAMES=""
-for d in _build/prod/lib/*/; do
+for d in "$BUILD"/lib/*/; do
   name=$(basename "$d")
   [ "$name" = "$SDK_APP" ] && [ "$WITH_SDK" != yes ] && continue
   NAMES="$NAMES $name"
@@ -94,9 +96,15 @@ done
 echo "== uploading:$LIBS"
 STAMP="$REV deployed $(date -u '+%Y-%m-%dT%H:%M:%SZ') by $(id -un)"
 # shellcheck disable=SC2086
-tar -C _build/prod/lib -chf - $LIBS |
-  nest "mkdir -p $BASE/apps && for n in$NAMES; do rm -rf $BASE/apps/\$n/ebin; done &&
-    tar -C $BASE/apps -xf - && echo '$STAMP' > $BASE/apps/$APP/DEPLOYED && sync"
+tar -C "$BUILD/lib" -chf - $LIBS |
+  nest "rm -rf $BASE/apps.new && mkdir -p $BASE/apps.new && tar -C $BASE/apps.new -xf - && sync"
+# Moved in only once all of it is on the flash, so a slow upload never leaves
+# the watchdog half an app to launch.
+nest "cd $BASE && for n in$NAMES; do
+    mkdir -p apps/\$n && rm -rf apps/\$n/ebin && mv apps.new/\$n/ebin apps/\$n/ebin &&
+    if [ -d apps.new/\$n/priv ]; then mkdir -p apps/\$n/priv && cp -a apps.new/\$n/priv/. apps/\$n/priv/; fi ||
+    exit 1
+  done && rm -rf apps.new && echo '$STAMP' > apps/$APP/DEPLOYED && sync"
 
 echo "== restarting $APP"
 # app_watchdog.sh relaunches it within 5 s with a new pid and a fresh log.
