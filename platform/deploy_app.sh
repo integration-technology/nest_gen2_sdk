@@ -2,10 +2,11 @@
 # Deploys an app built on nest_gen2 to the Nest: the app and its dependencies,
 # never the SDK itself (that is installed and versioned separately).
 #
-# Usage: deploy_app.sh <app_dir> [--no-test] [--sdk]
+# Usage: deploy_app.sh <app_dir> [--no-test] [--sdk] [--dirty]
 #   e.g. platform/deploy_app.sh ../foxbus
 #
 #   --no-test  skip `mix test`
+#   --dirty    deploy even with uncommitted changes in <app_dir>
 #   --sdk      also install the nest_gen2 version the app was built against,
 #              replacing a different one on the Nest (every app on the Nest
 #              shares one SDK). The first deploy to a Nest always installs it.
@@ -23,14 +24,16 @@
 # app (app_watchdog.sh relaunches it) and show the first lines of its log.
 set -e
 
-APP_DIR=${1:?usage: deploy_app.sh <app_dir> [--no-test] [--sdk]}
+APP_DIR=${1:?usage: deploy_app.sh <app_dir> [--no-test] [--sdk] [--dirty]}
 shift
 RUN_TESTS=yes
 WITH_SDK=no
+DIRTY=no
 for opt in "$@"; do
   case "$opt" in
     --no-test) RUN_TESTS=no ;;
     --sdk) WITH_SDK=yes ;;
+    --dirty) DIRTY=yes ;;
     *) echo "unknown option $opt"; exit 1 ;;
   esac
 done
@@ -59,6 +62,10 @@ APP=$(MIX_ENV=prod mix run --no-start --no-compile -e 'IO.write(Mix.Project.conf
 [ -n "$APP" ] || { echo "could not read the app name from $APP_DIR/mix.exs"; exit 1; }
 REV=$(git describe --always --dirty 2>/dev/null || echo unknown)
 echo "== $APP ($REV)"
+# Someone may be part-way through an edit: only what's committed ships.
+case "$REV" in *-dirty)
+  [ "$DIRTY" = yes ] || { echo "!! $APP_DIR has uncommitted changes: commit them, or add --dirty"; exit 1; } ;;
+esac
 
 if [ "$RUN_TESTS" = yes ]; then
   mix test

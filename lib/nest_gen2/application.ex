@@ -4,6 +4,8 @@ defmodule NestGen2.Application do
 
   @impl true
   def start(_type, _args) do
+    # Marks each boot (or app restart) in the kept trace.
+    NestGen2.Trace.event("nest_gen2 #{Application.spec(:nest_gen2, :vsn)} starting")
     unless NestGen2.Config.host?(), do: NestGen2.Network.configure_dns()
 
     children =

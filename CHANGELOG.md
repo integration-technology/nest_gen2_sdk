@@ -3,6 +3,16 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
+## 0.6.9 (2026-11-03)
+
+- Trace: **new** `trace_keep_file`. Power events (deep sleep and wake, the
+  base's wake reasons, a battery shutdown, each start) also go to this file on
+  flash, dated and synced, so they survive the reboot you want to explain.
+- `platform/deploy_app.sh`: builds in its own folder (`_build/deploy`) so a
+  build running in the app can't corrupt a deploy; uploads to `apps.new` and
+  moves it in only once it's all on the flash, so the watchdog never launches
+  half an app; refuses an app with uncommitted changes unless `--dirty`.
+
 ## 0.6.8 (2026-11-03)
 
 - `NestGen2.BatteryGuard`: **fix** USB detection. It now reads the power

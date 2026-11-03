@@ -162,12 +162,12 @@ defmodule NestGen2.Power do
   def handle_info(:deep_sleep, %{deep_sleep: true, awake: false, holds: holds} = s)
       when map_size(holds) == 0 do
     seconds = config(:deep_sleep_max_s)
-    NestGen2.Trace.write("deep sleep, up to #{seconds} s")
+    NestGen2.Trace.event("deep sleep, up to #{seconds} s")
     result = suspend(seconds, NestGen2.Backplate.sleep_notice(seconds, s.sources))
 
     case result do
-      {:ok, slept} -> NestGen2.Trace.write("woke after #{slept} s")
-      {:error, reason} -> NestGen2.Trace.write("suspend refused: #{inspect(reason)}")
+      {:ok, slept} -> NestGen2.Trace.event("woke after #{slept} s")
+      {:error, reason} -> NestGen2.Trace.event("suspend refused: #{inspect(reason)}")
     end
 
     NestGen2.Backplate.resumed()
@@ -201,7 +201,7 @@ defmodule NestGen2.Power do
   end
 
   defp handle_activity(source, s) do
-    unless s.awake, do: NestGen2.Trace.write("wake by #{inspect(source)}")
+    unless s.awake, do: NestGen2.Trace.event("wake by #{inspect(source)}")
     {:noreply, activity(s)}
   end
 
@@ -237,7 +237,7 @@ defmodule NestGen2.Power do
   defp go_to_sleep(%{awake: false} = s), do: s
 
   defp go_to_sleep(s) do
-    NestGen2.Trace.write("sleep")
+    NestGen2.Trace.event("sleep")
     Backlight.off()
     NestGen2.publish(:power, :asleep)
     s = %{s | awake: false, changed_at: now()}

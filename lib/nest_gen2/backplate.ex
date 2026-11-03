@@ -316,7 +316,7 @@ defmodule NestGen2.Backplate do
   defp handle_frame({:info, key, value}, s), do: %{s | info: Map.put(s.info, key, value)}
 
   defp handle_frame({:wake_reason, flags}, s) do
-    NestGen2.Trace.write("base wake reason #{Integer.to_string(flags, 16)}")
+    NestGen2.Trace.event("base wake reason #{Integer.to_string(flags, 16)}")
     s
   end
 

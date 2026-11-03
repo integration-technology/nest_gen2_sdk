@@ -121,3 +121,11 @@ The battery voltage (mV) is in the base's `0x000b` message (bytes 12-13) and its
 power status `0x002b` (per record: battery mV at bytes 2-3, input mV at 6-7).
 `NestGen2.Battery` publishes `:battery` events. With `trace_file` set, the trace
 shows each `deep sleep`, `woke after N s` and `base wake reason`.
+
+The trace is in RAM, so a reboot loses it, just when you want to know why the
+Nest rebooted. Set `trace_keep_file` to a file on flash, such as
+`/media/scratch/.nest_gen2_sdk/trace_kept.log`, to also keep the power lines
+there (sleep and wake, wake reasons, a battery shutdown, and each start), dated
+and synced as they're written. It's capped at 64 KB plus the one before it in
+`<file>.1`. A start line straight after `deep sleep` with no `woke after` means
+the Nest rebooted asleep.

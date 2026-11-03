@@ -70,7 +70,7 @@ defmodule NestGen2.BatteryGuard do
 
   defp shut_down(mv) do
     message = "battery #{mv} mV for 30 s, not on USB: shutting down"
-    NestGen2.Trace.write(message)
+    NestGen2.Trace.event(message)
     Logger.error("nest_gen2: " <> message)
     System.cmd(NestGen2.Config.get(:poweroff_cmd), [], stderr_to_stdout: true)
   end

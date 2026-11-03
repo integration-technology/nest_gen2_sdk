@@ -12,6 +12,7 @@ defmodule NestGen2.TraceTest do
     on_exit(fn ->
       Application.delete_env(:nest_gen2, :trace_file)
       Application.delete_env(:nest_gen2, :trace_max_bytes)
+      Application.delete_env(:nest_gen2, :trace_keep_file)
       File.rm_rf(dir)
     end)
 
@@ -23,6 +24,16 @@ defmodule NestGen2.TraceTest do
     assert File.stat!(path).size < 200 + 40
     assert File.stat!(path <> ".1").size >= 200
     assert File.read!(path) =~ "rx 000a 100"
+  end
+
+  test "events also go to the kept trace, with the date", %{path: path} do
+    kept = path <> ".kept"
+    Application.put_env(:nest_gen2, :trace_keep_file, kept)
+    Trace.write("rx 000a 1")
+    Trace.event("deep sleep, up to 270 s")
+    assert File.read!(path) =~ "deep sleep"
+    assert [line] = String.split(File.read!(kept), "\n", trim: true)
+    assert line =~ ~r/\A\d{4}-\d\d-\d\dT[\d:.]+Z deep sleep, up to 270 s\z/
   end
 
   test "off unless a trace file is set", %{path: path} do
