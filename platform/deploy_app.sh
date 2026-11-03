@@ -102,7 +102,9 @@ tar -C "$BUILD/lib" -chf - $LIBS |
 # the watchdog half an app to launch.
 nest "cd $BASE && for n in$NAMES; do
     mkdir -p apps/\$n && rm -rf apps/\$n/ebin && mv apps.new/\$n/ebin apps/\$n/ebin &&
-    if [ -d apps.new/\$n/priv ]; then mkdir -p apps/\$n/priv && cp -a apps.new/\$n/priv/. apps/\$n/priv/; fi ||
+    # tar, not cp: it replaces each file, so helpers the app is running don't
+    # block it (\"Text file busy\").
+    if [ -d apps.new/\$n/priv ]; then tar -C apps.new/\$n -cf - priv | tar -C apps/\$n -xf -; fi ||
     exit 1
   done && rm -rf apps.new && echo '$STAMP' > apps/$APP/DEPLOYED && sync"
 
