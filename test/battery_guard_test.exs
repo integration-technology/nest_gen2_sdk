@@ -18,7 +18,7 @@ defmodule NestGen2.BatteryGuardTest do
     ]
 
     for {k, v} <- env, do: Application.put_env(:nest_gen2, k, v)
-    File.write!(Path.join(dir, "vbus"), "Vbus off, timeout 1100\n")
+    File.write!(Path.join(dir, "vbus"), "off\n")
 
     on_exit(fn ->
       for k <- [:battery_shutdown_mv | Keyword.keys(env)],
@@ -54,7 +54,7 @@ defmodule NestGen2.BatteryGuardTest do
   end
 
   test "not on USB power", %{dir: dir} do
-    File.write!(Path.join(dir, "vbus"), "Vbus on, timeout 1100\n")
+    File.write!(Path.join(dir, "vbus"), "on\n")
     refute run_checks(dir, "1100\n")
   end
 

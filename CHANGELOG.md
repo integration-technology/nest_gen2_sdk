@@ -3,6 +3,12 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
+## 0.6.8 (2026-11-03)
+
+- `NestGen2.BatteryGuard`: **fix** USB detection. It now reads the power
+  chip's USB file, as Nest's own firmware does, instead of the USB
+  controller's, which said "off" even with a charger plugged in.
+
 ## 0.6.7 (2026-11-02)
 
 - Deep sleep: **fix** a crash in `NestGen2.Power` turning deep sleep off for

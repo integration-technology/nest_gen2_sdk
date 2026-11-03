@@ -61,10 +61,11 @@ defmodule NestGen2.BatteryGuard do
 
   defp low(low, _mv), do: low
 
-  # The USB controller reports "Vbus on, ..." while a charger or computer
-  # powers it.
+  # The power chip's USB side, which Nest's own firmware watches: "on" while
+  # a charger or computer powers it. (Not the USB controller's own "Vbus"
+  # file, which says off with a charger plugged in.)
   defp usb_power? do
-    match?({:ok, "Vbus on" <> _}, File.read(NestGen2.Config.get(:usb_vbus_path)))
+    match?({:ok, "on" <> _}, File.read(NestGen2.Config.get(:usb_vbus_path)))
   end
 
   defp shut_down(mv) do

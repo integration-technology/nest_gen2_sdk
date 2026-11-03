@@ -29,7 +29,7 @@ defmodule NestGen2.Config do
     button_long_press_ms: 800,
     battery_shutdown_mv: 3400,
     battery_adc_path: "/sys/class/hwmon/hwmon0/device/in0_battery_type",
-    usb_vbus_path: "/sys/devices/platform/musb-omap2430.0/musb-hdrc.0/vbus",
+    usb_vbus_path: "/sys/bus/platform/devices/twl4030_usb/vbus",
     poweroff_cmd: "/sbin/poweroff",
     temperature_offset_c: -3.7,
     backlight_level: 113,
