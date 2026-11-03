@@ -1,4 +1,4 @@
-#!/bin/sh
+      #!/bin/sh
 # Reads and writes an app's NestGen2.Storage values on the Nest from this
 # computer, e.g. to give an app its first settings without editing files.
 #

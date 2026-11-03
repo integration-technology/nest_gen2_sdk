@@ -71,7 +71,9 @@ if [ "$RUN_TESTS" = yes ]; then
   mix test
 fi
 # Its own build folder: a build someone runs in the app meanwhile can't change
-# the files as they are packed.
+# the files as they are packed. Built afresh each time: mix doesn't rebuild a
+# dependency there when the lock file moves it to a new version.
+rm -rf _build/deploy
 MIX_ENV=prod MIX_BUILD_ROOT=_build/deploy mix compile
 BUILD=_build/deploy/prod
 
