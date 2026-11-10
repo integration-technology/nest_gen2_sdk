@@ -1,7 +1,7 @@
 defmodule NestGen2.MixProject do
   use Mix.Project
 
-  @version "0.6.9"
+  @version "0.6.10"
   @source_url "https://github.com/integration-technology/nest_gen2_sdk"
 
   def project do

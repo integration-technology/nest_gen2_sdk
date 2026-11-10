@@ -69,6 +69,10 @@ defmodule NestGen2.Backplate do
   # A cast: Power mustn't crash waiting on a busy base just after waking.
   def resumed, do: GenServer.cast(__MODULE__, :resumed)
 
+  @doc false
+  # Whether the base's wake reason includes a change in light.
+  def light_wake?(flags), do: Bitwise.band(flags, 0x20) != 0
+
   # Not running (on a computer, in tests) is :ok; a base too busy to answer
   # in 5 s is an error for the caller to handle, not a crash.
   defp call_if_running(msg) do
@@ -317,6 +321,10 @@ defmodule NestGen2.Backplate do
 
   defp handle_frame({:wake_reason, flags}, s) do
     NestGen2.Trace.event("base wake reason #{Integer.to_string(flags, 16)}")
+    # Woken for a change in light (asked for only with :light in the sources):
+    # say so here, as resuming clears the light window, so the readings that
+    # follow can't show the change that woke us.
+    if light_wake?(flags), do: NestGen2.publish(:light, %{level: s.light})
     s
   end
 

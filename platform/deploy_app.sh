@@ -53,7 +53,8 @@ nest() {
   # shellcheck disable=SC2086
   ssh -F /dev/null ${NEST_KEY:+-o IdentityFile="$NEST_KEY" -o IdentitiesOnly=yes} \
     -o PubkeyAcceptedAlgorithms=+ssh-rsa -o HostKeyAlgorithms=+ecdsa-sha2-nistp521 \
-    -o ConnectTimeout=15 -o LogLevel=ERROR "root@$NEST_HOST" "$@"
+    -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+    -o LogLevel=ERROR "root@$NEST_HOST" "$@"
 }
 
 cd "$APP_DIR"

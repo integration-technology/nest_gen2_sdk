@@ -86,6 +86,13 @@ defmodule NestGen2.Backplate.HandshakeTest do
     assert Decode.decode(0x0014, <<0x80, 0x00>>) == {:wake_reason, 0x80}
   end
 
+  test "a wake reason with the light bit is a light wake" do
+    assert NestGen2.Backplate.light_wake?(0x20)
+    assert NestGen2.Backplate.light_wake?(0xA0)
+    refute NestGen2.Backplate.light_wake?(0x01)
+    refute NestGen2.Backplate.light_wake?(0x80)
+  end
+
   describe "wake?/5" do
     test "not while readings arrive" do
       refute Handshake.wake?(100_000, 99_000, 0, 15_000, 60_000)

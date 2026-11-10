@@ -3,6 +3,16 @@
 All notable changes to `nest_gen2`. Versions follow [Semantic Versioning](https://semver.org/):
 while the version is 0.x, a minor release (0.1 → 0.2) may change the API.
 
+## 0.6.10 (2026-11-10)
+
+- `NestGen2.Power`: **fix** waking the screen for light. When the base woke the
+  display from deep sleep because the room's light changed, the screen stayed
+  dark: resuming clears the light readings, so the change was never seen. The
+  base's wake reason now counts as the light wake itself, with `:light` in
+  `wake_sources`.
+- `platform/deploy_app.sh`: an ssh keepalive, so a Nest that goes to sleep
+  mid-upload fails the deploy in about 30 s instead of hanging it.
+
 ## 0.6.9 (2026-11-03)
 
 - Trace: **new** `trace_keep_file`. Power events (deep sleep and wake, the
